@@ -85,11 +85,18 @@ export async function getGoalsPageData() {
     }),
     prisma.pillar.findMany({
       where: { householdId: household.id },
-      orderBy: { sortOrder: "asc" }
+      orderBy: { sortOrder: "asc" },
+      include: pillarWithGoalsArgs.include
     })
   ]);
 
-  return { goals, pillars };
+  return {
+    goals,
+    pillars: pillars.map((pillar) => ({
+      ...pillar,
+      progress: calculatePillarProgress(pillar.goals)
+    }))
+  };
 }
 
 export async function getGoalDetailData(goalId: string) {
@@ -202,4 +209,3 @@ export async function getActivityPageData() {
     include: activityEventArgs.include
   });
 }
-
