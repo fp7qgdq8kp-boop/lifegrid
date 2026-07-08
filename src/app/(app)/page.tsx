@@ -31,12 +31,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { getDashboardData } from "@/lib/data";
-import { formatDate, formatGoalValue, formatPercent } from "@/lib/format";
-import { calculateGoalProgress, completedMilestoneCount } from "@/lib/progress";
+import { formatDate, formatPercent } from "@/lib/format";
+import { calculateGoalProgress } from "@/lib/progress";
 
 type DashboardData = Awaited<ReturnType<typeof getDashboardData>>;
 type DashboardPillar = DashboardData["pillars"][number];
 type DashboardGoal = DashboardData["goals"][number];
+type DashboardSuggestedMove = DashboardData["suggestedNextMoves"][number];
 
 type PillarVisual = {
   icon: LucideIcon;
@@ -127,17 +128,6 @@ function getGoalSignal(goal: DashboardGoal) {
     className: "text-slate-200",
     detail: goal.nextAction
   };
-}
-
-function getGoalProgressLabel(goal: DashboardGoal) {
-  if (goal.goalType === "CHECKLIST") {
-    return `${completedMilestoneCount(goal)}/${goal.milestones.length} milestones`;
-  }
-
-  return `${formatGoalValue(goal.currentValue, goal.unit)} of ${formatGoalValue(
-    goal.targetValue,
-    goal.unit
-  )}`;
 }
 
 function CommandMetric({
@@ -254,12 +244,22 @@ function PillarCard({ pillar }: { pillar: DashboardPillar }) {
   );
 }
 
-function ActionCard({ goal, index }: { goal: DashboardGoal; index: number }) {
-  const progress = calculateGoalProgress(goal);
+function getPriorityVariant(priority: DashboardSuggestedMove["priority"]) {
+  if (priority === "high") return "danger" as const;
+  if (priority === "medium") return "warning" as const;
+  return "accent" as const;
+}
 
+function SuggestedMoveCard({
+  suggestedMove,
+  index
+}: {
+  suggestedMove: DashboardSuggestedMove;
+  index: number;
+}) {
   return (
     <Link
-      href={`/goals/${goal.id}`}
+      href={`/goals/${suggestedMove.goalId}`}
       className="group block rounded-2xl border border-white/8 bg-white/[0.035] p-4 transition hover:-translate-y-0.5 hover:border-cyan-300/25 hover:bg-white/[0.055]"
     >
       <div className="flex items-start gap-4">
@@ -268,14 +268,24 @@ function ActionCard({ goal, index }: { goal: DashboardGoal; index: number }) {
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="font-medium text-white">{goal.title}</p>
-            <Badge variant="accent">{goal.pillar.name}</Badge>
+            <Badge variant={getPriorityVariant(suggestedMove.priority)}>
+              {suggestedMove.priority}
+            </Badge>
+            <Badge variant="accent">{suggestedMove.pillarName}</Badge>
           </div>
-          <p className="mt-2 text-sm leading-6 text-slate-300/80">{goal.nextAction}</p>
+          <p className="mt-3 text-sm font-medium leading-6 text-white">
+            {suggestedMove.suggestion}
+          </p>
+          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+            {suggestedMove.goalTitle}
+          </p>
+          <p className="mt-2 text-sm leading-6 text-slate-300/75">{suggestedMove.reason}</p>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-slate-500">{getGoalProgressLabel(goal)}</p>
+            <p className="text-xs text-slate-500">
+              {suggestedMove.category.replaceAll("_", " ")}
+            </p>
             <div className="flex items-center gap-2 text-xs text-cyan-100">
-              <span>{formatPercent(progress)}</span>
+              <span>Open goal</span>
               <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
             </div>
           </div>
@@ -388,12 +398,12 @@ export default async function DashboardPage() {
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <CommandMetric
-          label="Next actions"
-          value={String(data.nextActions.length)}
+          label="Suggested moves"
+          value={String(data.suggestedNextMoves.length)}
           detail={
             activeGoalsWithNoNextAction
               ? `${activeGoalsWithNoNextAction} goals need a next move.`
-              : "Every active goal has a next move."
+              : "Rule checks are keeping the next move visible."
           }
           tone={activeGoalsWithNoNextAction ? "warning" : "success"}
           icon={Target}
@@ -458,10 +468,10 @@ export default async function DashboardPage() {
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <Target className="h-5 w-5 text-cyan-100" />
-                  Next action queue
+                  Suggested Next Moves
                 </CardTitle>
                 <CardDescription>
-                  The fastest path from dashboard to motion.
+                  Rule-based prompts for what to do next.
                 </CardDescription>
               </div>
               <Button variant="ghost" size="sm" asChild>
@@ -473,14 +483,18 @@ export default async function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-3 pt-6">
-            {data.nextActions.length ? (
-              data.nextActions.map((goal, index) => (
-                <ActionCard key={goal.id} goal={goal} index={index} />
+            {data.suggestedNextMoves.length ? (
+              data.suggestedNextMoves.map((suggestedMove, index) => (
+                <SuggestedMoveCard
+                  key={`${suggestedMove.goalId}-${suggestedMove.category}-${index}`}
+                  suggestedMove={suggestedMove}
+                  index={index}
+                />
               ))
             ) : (
               <EmptyState
-                title="No next actions yet"
-                description="Create or update a goal and give it one concrete next move."
+                title="No suggested moves right now"
+                description="Active goals with blockers, stale updates, missing progress, or deadline risk will appear here."
               />
             )}
           </CardContent>

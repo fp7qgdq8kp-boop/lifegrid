@@ -132,6 +132,7 @@ export function GoalFormDialog({
                   </option>
                 ))}
               </select>
+              <FieldError message={state.fieldErrors?.goalType?.[0]} />
             </div>
 
             {showNumericFields ? (
@@ -216,6 +217,7 @@ export function GoalFormDialog({
                   !goal?.nextAction ? "border-amber-400/20 bg-amber-400/5" : undefined
                 )}
               />
+              <FieldError message={state.fieldErrors?.nextAction?.[0]} />
             </div>
 
             <div className="md:col-span-2">

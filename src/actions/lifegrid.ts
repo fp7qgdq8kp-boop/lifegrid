@@ -25,6 +25,14 @@ const goalSchema = z.object({
   isShared: z.enum(["true", "false"]).default("true")
 });
 
+const createGoalSchema = goalSchema.extend({
+  nextAction: z.string().trim().min(2, "Add the next concrete action.")
+});
+
+const updateGoalSchema = goalSchema.extend({
+  goalId: z.string().min(1, "Goal id is required.")
+});
+
 const progressSchema = z.object({
   goalId: z.string().min(1),
   newValue: z.string().optional(),
@@ -78,7 +86,7 @@ function revalidateLifeGrid(goalId?: string) {
 }
 
 export async function createGoalAction(_: FormState, formData: FormData): Promise<FormState> {
-  const parsed = goalSchema.safeParse(Object.fromEntries(formData.entries()));
+  const parsed = createGoalSchema.safeParse(Object.fromEntries(formData.entries()));
 
   if (!parsed.success) {
     return {
@@ -142,9 +150,7 @@ export async function createGoalAction(_: FormState, formData: FormData): Promis
 }
 
 export async function updateGoalAction(_: FormState, formData: FormData): Promise<FormState> {
-  const parsed = goalSchema.extend({
-    goalId: z.string().min(1, "Goal id is required.")
-  }).safeParse(Object.fromEntries(formData.entries()));
+  const parsed = updateGoalSchema.safeParse(Object.fromEntries(formData.entries()));
 
   if (!parsed.success) {
     return {
@@ -258,23 +264,32 @@ export async function updateGoalProgressAction(
     };
   }
 
-  const newValue =
-    goal.goalType === GoalType.CHECKLIST
-      ? goal.currentValue
-      : toNumberOrNull(payload.newValue);
+  const requiresNumericValue =
+    goal.goalType !== GoalType.CHECKLIST && goal.goalType !== GoalType.RECURRING;
+  const parsedNewValue = toNumberOrNull(payload.newValue);
+
+  if (requiresNumericValue && parsedNewValue === null) {
+    return {
+      status: "error",
+      message: "Add a new current value before saving progress.",
+      fieldErrors: {
+        newValue: ["Add a new current value."]
+      }
+    };
+  }
+
+  const newValue = requiresNumericValue ? parsedNewValue : goal.currentValue;
 
   await prisma.$transaction(async (tx) => {
-    if (goal.goalType !== GoalType.CHECKLIST && goal.goalType !== GoalType.RECURRING) {
-      await tx.progressLog.create({
-        data: {
-          goalId: goal.id,
-          userId: user.id,
-          previousValue: goal.currentValue,
-          newValue,
-          note: emptyToNull(payload.note)
-        }
-      });
-    }
+    await tx.progressLog.create({
+      data: {
+        goalId: goal.id,
+        userId: user.id,
+        previousValue: goal.currentValue,
+        newValue,
+        note: emptyToNull(payload.note)
+      }
+    });
 
     await tx.goal.update({
       where: { id: goal.id },
@@ -294,7 +309,7 @@ export async function updateGoalProgressAction(
         entityId: goal.id,
         message:
           goal.goalType === GoalType.CHECKLIST
-            ? `${goal.title} received an update.`
+            ? `${goal.title} received a progress note.`
             : `${goal.title} moved from ${goal.currentValue ?? 0} to ${newValue ?? 0}.`
       }
     });
@@ -308,11 +323,18 @@ export async function updateGoalProgressAction(
   };
 }
 
-export async function createMilestoneAction(formData: FormData) {
+export async function createMilestoneAction(
+  _: FormState,
+  formData: FormData
+): Promise<FormState> {
   const parsed = milestoneSchema.safeParse(Object.fromEntries(formData.entries()));
 
   if (!parsed.success) {
-    return;
+    return {
+      status: "error",
+      message: "Review the milestone fields.",
+      fieldErrors: getFieldErrors(parsed.error)
+    };
   }
 
   const { household, user } = await getViewerContext();
@@ -334,7 +356,10 @@ export async function createMilestoneAction(formData: FormData) {
   });
 
   if (!goal) {
-    return;
+    return {
+      status: "error",
+      message: "That goal could not be found."
+    };
   }
 
   const milestone = await prisma.milestone.create({
@@ -367,6 +392,11 @@ export async function createMilestoneAction(formData: FormData) {
   });
 
   revalidateLifeGrid(goal.id);
+
+  return {
+    status: "success",
+    message: "Milestone added."
+  };
 }
 
 export async function completeMilestoneAction(formData: FormData) {
@@ -424,7 +454,7 @@ export async function completeMilestoneAction(formData: FormData) {
 
     const goalCompleted = remaining.length === 0;
 
-    if (goalCompleted) {
+    if (goalCompleted && milestone.goal.goalType === GoalType.CHECKLIST) {
       await tx.goal.update({
         where: { id: milestone.goal.id },
         data: {

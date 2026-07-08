@@ -9,6 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { initialFormState } from "@/lib/action-state";
 
+function FieldError({ message }: { message?: string }) {
+  return message ? <p className="mt-2 text-xs text-red-300">{message}</p> : null;
+}
+
 export function WeeklyReviewForm({ weekStartDate }: { weekStartDate: string }) {
   const [state, formAction, pending] = useActionState(
     createWeeklyReviewAction,
@@ -20,22 +24,27 @@ export function WeeklyReviewForm({ weekStartDate }: { weekStartDate: string }) {
       <div>
         <Label htmlFor="weekStartDate">Week starting</Label>
         <Input id="weekStartDate" name="weekStartDate" type="date" defaultValue={weekStartDate} />
+        <FieldError message={state.fieldErrors?.weekStartDate?.[0]} />
       </div>
       <div>
         <Label htmlFor="wins">Wins this week</Label>
         <Textarea id="wins" name="wins" className="min-h-[96px]" />
+        <FieldError message={state.fieldErrors?.wins?.[0]} />
       </div>
       <div>
         <Label htmlFor="stuckPoints">What got stuck</Label>
         <Textarea id="stuckPoints" name="stuckPoints" className="min-h-[88px]" />
+        <FieldError message={state.fieldErrors?.stuckPoints?.[0]} />
       </div>
       <div>
         <Label htmlFor="focusNextWeek">Focus for next week</Label>
         <Textarea id="focusNextWeek" name="focusNextWeek" className="min-h-[88px]" />
+        <FieldError message={state.fieldErrors?.focusNextWeek?.[0]} />
       </div>
       <div>
         <Label htmlFor="cutOrPause">What to cut or pause</Label>
         <Textarea id="cutOrPause" name="cutOrPause" className="min-h-[88px]" />
+        <FieldError message={state.fieldErrors?.cutOrPause?.[0]} />
       </div>
       <div>
         <Label htmlFor="notes">Notes</Label>
@@ -58,4 +67,3 @@ export function WeeklyReviewForm({ weekStartDate }: { weekStartDate: string }) {
     </form>
   );
 }
-

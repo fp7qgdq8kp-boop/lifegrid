@@ -8,20 +8,25 @@ import {
   Clock3,
   Flag,
   ListChecks,
-  Plus,
   Target,
   UserCircle2
 } from "lucide-react";
 
-import { ActionPlaceholderDialog } from "@/components/action-placeholder-dialog";
+import { completeMilestoneAction } from "@/actions/lifegrid";
 import { ActivityFeed } from "@/components/activity-feed";
 import { EmptyState } from "@/components/empty-state";
+import { GoalFormDialog } from "@/components/goal-form-dialog";
+import { MilestoneFormDialog } from "@/components/milestone-form-dialog";
 import { ProgressBar } from "@/components/progress-bar";
+import { ProgressUpdateDialog } from "@/components/progress-update-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getGoalDetailData } from "@/lib/data";
 import { formatDate, formatGoalValue, formatRelativeDate } from "@/lib/format";
+
+type GoalDetailData = NonNullable<Awaited<ReturnType<typeof getGoalDetailData>>>;
+type GoalRecommendedMove = NonNullable<GoalDetailData["recommendedNextMove"]>;
 
 function statusVariant(status: string) {
   if (status === "COMPLETED") return "success" as const;
@@ -37,6 +42,12 @@ function humanize(value: string) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function getPriorityVariant(priority: GoalRecommendedMove["priority"]) {
+  if (priority === "high") return "danger" as const;
+  if (priority === "medium") return "warning" as const;
+  return "accent" as const;
+}
+
 export default async function GoalDetailPage({
   params
 }: {
@@ -49,7 +60,7 @@ export default async function GoalDetailPage({
     notFound();
   }
 
-  const { goal, progress, activity } = data;
+  const { goal, progress, pillars, activity, recommendedNextMove } = data;
   const missingNextAction = !goal.nextAction?.trim();
   const hasBlocker = Boolean(goal.blocker?.trim());
   const completedMilestones = goal.milestones.filter(
@@ -87,39 +98,25 @@ export default async function GoalDetailPage({
             </div>
 
             <div className="grid gap-3 rounded-2xl border border-white/10 bg-slate-950/45 p-4 backdrop-blur">
-              <ActionPlaceholderDialog
-                title="Update Progress"
-                triggerLabel="Update Progress"
-                description="This will become the workflow for logging progress, blockers, and the next move."
-              >
-                <p>
-                  Placeholder for updating the current value, writing a progress note, and refreshing
-                  the next action without changing seeded data yet.
-                </p>
-              </ActionPlaceholderDialog>
+              <ProgressUpdateDialog
+                goalId={goal.id}
+                currentValue={goal.currentValue}
+                goalType={goal.goalType}
+                nextAction={goal.nextAction}
+                blocker={goal.blocker}
+              />
               <div className="grid grid-cols-2 gap-3">
-                <ActionPlaceholderDialog
-                  title="Edit Goal"
+                <GoalFormDialog
+                  pillars={pillars.map((pillar) => ({ id: pillar.id, name: pillar.name }))}
+                  goal={goal}
                   triggerLabel="Edit Goal"
                   triggerVariant="outline"
-                  description="This will become the structured edit form for this goal."
-                >
-                  <p>
-                    Placeholder for editing title, pillar, status, description, owner, deadline,
-                    blocker, and next action.
-                  </p>
-                </ActionPlaceholderDialog>
-                <ActionPlaceholderDialog
-                  title="Add Milestone"
+                />
+                <MilestoneFormDialog
+                  goalId={goal.id}
                   triggerLabel="Add Milestone"
                   triggerVariant="secondary"
-                  description="This will become the flow for adding a milestone to this goal."
-                >
-                  <p>
-                    Placeholder for adding a milestone title, optional detail, and order inside this
-                    goal.
-                  </p>
-                </ActionPlaceholderDialog>
+                />
               </div>
             </div>
           </div>
@@ -141,6 +138,55 @@ export default async function GoalDetailPage({
           </div>
         </div>
       </section>
+
+      <Card
+        className={recommendedNextMove ? "overflow-hidden border-cyan-300/15" : "overflow-hidden"}
+      >
+        <CardHeader className="border-b border-white/8 bg-white/[0.025]">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Target className="h-5 w-5 text-cyan-100" />
+                Recommended Next Move
+              </CardTitle>
+              <CardDescription>
+                The top rule-based suggestion for this goal.
+              </CardDescription>
+            </div>
+            {recommendedNextMove ? (
+              <Badge variant={getPriorityVariant(recommendedNextMove.priority)}>
+                {recommendedNextMove.priority}
+              </Badge>
+            ) : (
+              <Badge variant="success">Clear</Badge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="pt-6">
+          {recommendedNextMove ? (
+            <div className="rounded-2xl border border-cyan-300/15 bg-cyan-400/10 p-5">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="accent">{recommendedNextMove.pillarName}</Badge>
+                <Badge>{recommendedNextMove.category.replaceAll("_", " ")}</Badge>
+              </div>
+              <p className="mt-4 text-lg font-semibold text-white">
+                {recommendedNextMove.suggestion}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-cyan-50/75">
+                {recommendedNextMove.reason}
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-emerald-300/15 bg-emerald-400/10 p-5">
+              <p className="font-medium text-white">No rule-based recommendation is firing.</p>
+              <p className="mt-2 text-sm leading-6 text-emerald-50/75">
+                This goal has no blocker, deadline risk, stale update, or missing setup signal
+                right now.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <section className="grid gap-6 xl:grid-cols-[1fr,0.9fr]">
         <div className="space-y-6">
@@ -207,17 +253,7 @@ export default async function GoalDetailPage({
                     as structure.
                   </CardDescription>
                 </div>
-                <ActionPlaceholderDialog
-                  title="Add Milestone"
-                  triggerLabel="Add Milestone"
-                  triggerVariant="secondary"
-                  description="This will become the milestone creation workflow."
-                >
-                  <p>
-                    Placeholder for adding a milestone, assigning status, and placing it in the
-                    sequence.
-                  </p>
-                </ActionPlaceholderDialog>
+                <MilestoneFormDialog goalId={goal.id} />
               </div>
             </CardHeader>
             <CardContent className="space-y-3 pt-6">
@@ -260,10 +296,13 @@ export default async function GoalDetailPage({
                           {formatRelativeDate(milestone.completedAt ?? milestone.updatedAt)}
                         </p>
                       ) : (
-                        <Button variant="ghost" size="sm" disabled>
-                          <Plus className="h-4 w-4" />
-                          Update soon
-                        </Button>
+                        <form action={completeMilestoneAction}>
+                          <input type="hidden" name="milestoneId" value={milestone.id} />
+                          <Button type="submit" variant="secondary" size="sm">
+                            <CheckCircle2 className="h-4 w-4" />
+                            Mark complete
+                          </Button>
+                        </form>
                       )}
                     </div>
                   </div>
@@ -307,7 +346,7 @@ export default async function GoalDetailPage({
               ) : (
                 <EmptyState
                   title="No progress logs yet"
-                  description="The Update Progress button is ready as a placeholder for the next workflow pass."
+                  description="Use Update Progress to log the next movement on this goal."
                 />
               )}
             </CardContent>

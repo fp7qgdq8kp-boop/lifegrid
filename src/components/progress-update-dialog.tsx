@@ -17,6 +17,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { initialFormState } from "@/lib/action-state";
 
+function FieldError({ message }: { message?: string }) {
+  return message ? <p className="mt-2 text-xs text-red-300">{message}</p> : null;
+}
+
 export function ProgressUpdateDialog({
   goalId,
   currentValue,
@@ -47,7 +51,7 @@ export function ProgressUpdateDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="secondary">Update progress</Button>
+        <Button variant="secondary">Update Progress</Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
@@ -69,6 +73,7 @@ export function ProgressUpdateDialog({
                 step="0.01"
                 defaultValue={currentValue ?? ""}
               />
+              <FieldError message={state.fieldErrors?.newValue?.[0]} />
             </div>
           ) : null}
 
@@ -124,4 +129,3 @@ export function ProgressUpdateDialog({
     </Dialog>
   );
 }
-

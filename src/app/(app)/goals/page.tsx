@@ -1,10 +1,10 @@
 import type { LucideIcon } from "lucide-react";
 import { AlertTriangle, CircleCheckBig, Layers3, Target } from "lucide-react";
 
-import { ActionPlaceholderDialog } from "@/components/action-placeholder-dialog";
+import { GoalFormDialog } from "@/components/goal-form-dialog";
 import { GoalCard } from "@/components/goal-card";
-import { PillarCard } from "@/components/pillar-card";
 import { EmptyState } from "@/components/empty-state";
+import { PillarCard } from "@/components/pillar-card";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getGoalsPageData } from "@/lib/data";
@@ -78,16 +78,10 @@ export default async function GoalsPage() {
               actions surfaced before they can drift.
             </p>
           </div>
-          <ActionPlaceholderDialog
-            title="Create Goal"
+          <GoalFormDialog
+            pillars={pillars.map((pillar) => ({ id: pillar.id, name: pillar.name }))}
             triggerLabel="Create Goal"
-            description="This will become the guided flow for adding a goal to a pillar."
-          >
-            <p>
-              Placeholder for choosing a pillar, goal type, target, owner, and first next action.
-              Seeded goals stay unchanged for now.
-            </p>
-          </ActionPlaceholderDialog>
+          />
         </div>
       </section>
 

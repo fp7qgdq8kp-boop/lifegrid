@@ -2,7 +2,13 @@ import { GoalStatus } from "@prisma/client";
 
 import { getViewerContext } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { calculateGoalProgress, calculateOverallProgress, calculatePillarProgress, isGoalStuck } from "@/lib/progress";
+import { getNextStepSuggestions, getTopNextStepForGoal } from "@/lib/next-steps";
+import {
+  calculateGoalProgress,
+  calculateOverallProgress,
+  calculatePillarProgress,
+  isGoalStuck
+} from "@/lib/progress";
 import {
   activityEventArgs,
   goalCardArgs,
@@ -47,6 +53,7 @@ export async function getDashboardData() {
     .filter((goal) => goal.nextAction?.trim())
     .sort((a, b) => a.updatedAt.getTime() - b.updatedAt.getTime())
     .slice(0, 6);
+  const suggestedNextMoves = getNextStepSuggestions(goals).slice(0, 8);
   const recentWins = activity.filter(
     (event) =>
       event.eventType.includes("completed") ||
@@ -61,6 +68,7 @@ export async function getDashboardData() {
     activeGoals,
     overallProgress,
     nextActions,
+    suggestedNextMoves,
     stuckGoals,
     goalsMissingNextAction,
     reviews,
@@ -154,7 +162,8 @@ export async function getGoalDetailData(goalId: string) {
     goal,
     activity,
     pillars,
-    progress: calculateGoalProgress(goal)
+    progress: calculateGoalProgress(goal),
+    recommendedNextMove: getTopNextStepForGoal(goal)
   };
 }
 
