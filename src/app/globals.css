@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 222 47% 6%;
+  --foreground: 210 20% 96%;
+  --card: 222 39% 10%;
+  --card-foreground: 210 20% 96%;
+  --popover: 222 39% 10%;
+  --popover-foreground: 210 20% 96%;
+  --primary: 191 91% 48%;
+  --primary-foreground: 222 47% 8%;
+  --secondary: 220 27% 16%;
+  --secondary-foreground: 210 20% 96%;
+  --muted: 221 25% 18%;
+  --muted-foreground: 217 12% 64%;
+  --accent: 222 33% 15%;
+  --accent-foreground: 210 20% 96%;
+  --destructive: 0 78% 56%;
+  --destructive-foreground: 210 20% 96%;
+  --success: 161 84% 40%;
+  --success-foreground: 163 88% 96%;
+  --warning: 39 96% 53%;
+  --warning-foreground: 29 100% 12%;
+  --border: 220 18% 18%;
+  --input: 220 18% 18%;
+  --ring: 191 91% 48%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply dark;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-manrope), sans-serif;
+    background-image:
+      radial-gradient(circle at top, rgba(14, 165, 233, 0.1), transparent 22%),
+      linear-gradient(180deg, rgba(15, 23, 42, 0.96) 0%, rgba(2, 6, 23, 1) 100%);
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(to right, rgba(148, 163, 184, 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(148, 163, 184, 0.05) 1px, transparent 1px);
+    background-size: 72px 72px;
+    mask-image: radial-gradient(circle at center, rgba(255, 255, 255, 0.45), transparent 82%);
+  }
+
+  ::selection {
+    background: rgba(34, 211, 238, 0.28);
+    color: white;
+  }
+}
+
+@layer utilities {
+  .font-heading {
+    font-family: var(--font-space-grotesk), sans-serif;
+  }
+}

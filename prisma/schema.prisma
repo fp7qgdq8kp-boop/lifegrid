@@ -1,0 +1,186 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum HouseholdMemberRole {
+  OWNER
+  MEMBER
+}
+
+enum GoalType {
+  MONEY
+  DEBT
+  CHECKLIST
+  COUNT
+  PERCENTAGE
+  MILESTONE
+  RECURRING
+}
+
+enum GoalStatus {
+  PLANNED
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum MilestoneStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+}
+
+model User {
+  id                     String             @id @default(cuid())
+  name                   String
+  email                  String             @unique
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  createdHouseholds      Household[]        @relation("HouseholdCreator")
+  householdMemberships   HouseholdMember[]
+  ownedGoals             Goal[]
+  progressLogs           ProgressLog[]
+  weeklyReviewsCreated   WeeklyReview[]
+  activityEventsAuthored ActivityEvent[]
+}
+
+model Household {
+  id               String           @id @default(cuid())
+  name             String
+  createdByUserId  String
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  createdByUser    User             @relation("HouseholdCreator", fields: [createdByUserId], references: [id])
+  members          HouseholdMember[]
+  pillars          Pillar[]
+  goals            Goal[]
+  weeklyReviews    WeeklyReview[]
+  activityEvents   ActivityEvent[]
+}
+
+model HouseholdMember {
+  id          String              @id @default(cuid())
+  householdId String
+  userId      String
+  role        HouseholdMemberRole
+  createdAt   DateTime            @default(now())
+  household   Household           @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, userId])
+}
+
+model Pillar {
+  id          String     @id @default(cuid())
+  householdId String
+  name        String
+  description String?
+  icon        String?
+  sortOrder   Int
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  household   Household  @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  goals       Goal[]
+
+  @@unique([householdId, name])
+}
+
+model Goal {
+  id           String      @id @default(cuid())
+  householdId  String
+  pillarId     String
+  ownerUserId  String
+  title        String
+  description  String?
+  goalType     GoalType
+  targetValue  Float?
+  currentValue Float?
+  unit         String?
+  status       GoalStatus  @default(ACTIVE)
+  deadline     DateTime?
+  nextAction   String?
+  blocker      String?
+  isShared     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  completedAt  DateTime?
+  household    Household   @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  pillar       Pillar      @relation(fields: [pillarId], references: [id], onDelete: Cascade)
+  ownerUser    User        @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  milestones   Milestone[]
+  progressLogs ProgressLog[]
+
+  @@index([householdId, status])
+  @@index([pillarId])
+}
+
+model Milestone {
+  id          String          @id @default(cuid())
+  goalId      String
+  title       String
+  description String?
+  status      MilestoneStatus @default(PENDING)
+  sortOrder   Int
+  dueDate     DateTime?
+  completedAt DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  goal        Goal            @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([goalId, sortOrder])
+}
+
+model ProgressLog {
+  id            String   @id @default(cuid())
+  goalId        String
+  userId        String
+  previousValue Float?
+  newValue      Float?
+  note          String?
+  createdAt     DateTime @default(now())
+  goal          Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([goalId, createdAt])
+}
+
+model WeeklyReview {
+  id               String    @id @default(cuid())
+  householdId      String
+  weekStartDate    DateTime
+  wins             String
+  stuckPoints      String
+  focusNextWeek    String
+  cutOrPause       String
+  notes            String?
+  createdByUserId  String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  household        Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  createdByUser    User      @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, weekStartDate])
+  @@index([weekStartDate])
+}
+
+model ActivityEvent {
+  id          String    @id @default(cuid())
+  householdId String
+  userId      String?
+  eventType   String
+  entityType  String
+  entityId    String
+  message     String
+  createdAt   DateTime  @default(now())
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([householdId, createdAt])
+  @@index([entityType, entityId])
+}
