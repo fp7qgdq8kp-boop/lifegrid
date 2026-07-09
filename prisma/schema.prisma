@@ -55,6 +55,7 @@ model User {
   notificationsReceived   Notification[]           @relation("NotificationRecipient")
   notificationsActed      Notification[]           @relation("NotificationActor")
   notificationPreferences NotificationPreference[]
+  pushSubscriptions       PushSubscription[]
 }
 
 model Household {
@@ -74,6 +75,7 @@ model Household {
   reviewRequests          ReviewRequest[]
   notifications           Notification[]
   notificationPreferences NotificationPreference[]
+  pushSubscriptions       PushSubscription[]
 }
 
 model HouseholdMember {
@@ -360,4 +362,24 @@ model NotificationPreference {
 
   @@unique([householdId, userId, type])
   @@index([userId, type])
+}
+
+model PushSubscription {
+  id             String    @id @default(cuid())
+  householdId    String
+  userId         String
+  endpoint       String    @unique
+  p256dh         String
+  auth           String
+  expirationTime DateTime?
+  userAgent      String?
+  disabledAt     DateTime?
+  lastSeenAt     DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  household      Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, userId, disabledAt])
+  @@index([userId, lastSeenAt])
 }

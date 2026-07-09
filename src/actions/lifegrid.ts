@@ -16,6 +16,11 @@ import { nextStepCategories } from "@/lib/next-steps";
 import { createActivityEventWithNotifications } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 import { calculateGoalProgress } from "@/lib/progress";
+import {
+  disablePushSubscription,
+  savePushSubscription,
+  type PushSubscriptionInput
+} from "@/lib/push-subscriptions";
 import { emptyToNull, toNumberOrNull } from "@/lib/utils";
 
 const goalSchema = z.object({
@@ -2266,4 +2271,59 @@ export async function updateNotificationPreferencesAction(formData: FormData) {
   );
 
   revalidateNotifications();
+}
+
+export async function savePushSubscriptionAction(input: PushSubscriptionInput) {
+  const { household, user } = await getViewerContext();
+
+  try {
+    const subscription = await savePushSubscription({
+      householdId: household.id,
+      userId: user.id,
+      input
+    });
+
+    revalidateNotifications();
+
+    return {
+      ok: true,
+      subscriptionId: subscription.id
+    };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return {
+        ok: false,
+        message: "LifeGrid could not save this browser notification subscription."
+      };
+    }
+
+    throw error;
+  }
+}
+
+export async function removePushSubscriptionAction(endpoint: string) {
+  const { household, user } = await getViewerContext();
+
+  try {
+    await disablePushSubscription({
+      householdId: household.id,
+      userId: user.id,
+      endpoint
+    });
+
+    revalidateNotifications();
+
+    return {
+      ok: true
+    };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return {
+        ok: false,
+        message: "LifeGrid could not remove this browser notification subscription."
+      };
+    }
+
+    throw error;
+  }
 }
