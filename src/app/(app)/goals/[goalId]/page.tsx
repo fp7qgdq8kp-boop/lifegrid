@@ -1,10 +1,12 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import {
   AlertTriangle,
   Archive,
   CalendarClock,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   Clock3,
   Eye,
@@ -92,6 +94,45 @@ function getPriorityVariant(priority: GoalRecommendedMove["priority"]) {
   return "accent" as const;
 }
 
+function CollapsibleGoalSection({
+  id,
+  title,
+  description,
+  icon,
+  badge,
+  defaultOpen = false,
+  children
+}: {
+  id: string;
+  title: string;
+  description: string;
+  icon?: ReactNode;
+  badge?: ReactNode;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <details
+      id={id}
+      open={defaultOpen}
+      className="group rounded-[1.5rem] border border-white/8 bg-card/90 shadow-panel backdrop-blur-sm"
+    >
+      <summary className="flex cursor-pointer list-none items-start justify-between gap-4 p-5 transition hover:bg-white/[0.025] sm:p-6 [&::-webkit-details-marker]:hidden">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            {icon}
+            <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+            {badge}
+          </div>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p>
+        </div>
+        <ChevronDown className="mt-1 h-5 w-5 shrink-0 text-slate-500 transition group-open:rotate-180 group-hover:text-cyan-100" />
+      </summary>
+      <div className="border-t border-white/8 p-5 pt-5 sm:p-6">{children}</div>
+    </details>
+  );
+}
+
 export default async function GoalDetailPage({
   params
 }: {
@@ -137,12 +178,11 @@ export default async function GoalDetailPage({
     }))
   ];
   const sectionLinks = [
-    { href: "#recommended", label: "Next move" },
-    { href: "#next-action", label: "Next / blocker" },
+    { href: "#recommended", label: "Start" },
     { href: "#decisions", label: "Decisions" },
     { href: "#milestones", label: "Milestones" },
     { href: "#notes", label: "Notes" },
-    { href: "#activity", label: "Activity" }
+    { href: "#history", label: "History" }
   ];
 
   return (
@@ -350,17 +390,19 @@ export default async function GoalDetailPage({
             </CardContent>
           </Card>
 
-          <Card id="notes">
-            <CardHeader className="border-b border-white/8 bg-white/[0.025]">
-              <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5 text-cyan-100" />
-                Collaboration
-              </CardTitle>
-              <CardDescription>
-                Leave context, ask for review, and keep partner alignment close to the plan.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5 pt-6">
+          <CollapsibleGoalSection
+            id="notes"
+            title="Notes and review"
+            description="Open this when you need comments, partner check-ins, or review requests."
+            icon={<MessageSquare className="h-5 w-5 text-cyan-100" />}
+            badge={
+              openReviewRequests.length ? (
+                <Badge variant="warning">{openReviewRequests.length} open</Badge>
+              ) : null
+            }
+            defaultOpen={Boolean(openReviewRequests.length)}
+          >
+            <div className="space-y-5">
               <div className="grid gap-4 xl:grid-cols-2">
                 <form
                   action={submitCommentAction}
@@ -568,8 +610,8 @@ export default async function GoalDetailPage({
                   />
                 )}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </CollapsibleGoalSection>
 
           <Card id="decisions">
             <CardHeader className="border-b border-white/8 bg-white/[0.025]">
@@ -788,50 +830,49 @@ export default async function GoalDetailPage({
             </CardContent>
           </Card>
 
-          <Card id="progress">
-            <CardHeader className="border-b border-white/8 bg-white/[0.025]">
-              <CardTitle>Progress history</CardTitle>
-              <CardDescription>
-                Each progress update will become a log entry for the goal timeline.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-6">
-              {goal.progressLogs.length ? (
-                <div className="space-y-3">
-                  {goal.progressLogs.map((log) => (
-                    <div
-                      key={log.id}
-                      className="rounded-2xl border border-white/8 bg-white/[0.035] p-4"
-                    >
-                      <div className="flex flex-wrap items-center gap-2 text-sm text-slate-300">
-                        <Badge variant="accent">
-                          {log.previousValue ?? 0} to {log.newValue ?? 0}
-                        </Badge>
-                        <span>{formatRelativeDate(log.createdAt)}</span>
-                      </div>
-                      <p className="mt-3 text-sm leading-6 text-slate-300/75">
-                        {log.note || "No note was added for this update."}
-                      </p>
+          <CollapsibleGoalSection
+            id="history"
+            title="Progress history"
+            description="Open this when you want the detailed timeline of progress updates."
+            icon={<Clock3 className="h-5 w-5 text-cyan-100" />}
+            badge={goal.progressLogs.length ? <Badge>{goal.progressLogs.length} logs</Badge> : null}
+          >
+            {goal.progressLogs.length ? (
+              <div className="space-y-3">
+                {goal.progressLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="rounded-2xl border border-white/8 bg-white/[0.035] p-4"
+                  >
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-slate-300">
+                      <Badge variant="accent">
+                        {log.previousValue ?? 0} to {log.newValue ?? 0}
+                      </Badge>
+                      <span>{formatRelativeDate(log.createdAt)}</span>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <EmptyState
-                  title="No progress logs yet"
-                  description="Use Update Progress to log the next movement on this goal."
-                />
-              )}
-            </CardContent>
-          </Card>
+                    <p className="mt-3 text-sm leading-6 text-slate-300/75">
+                      {log.note || "No note was added for this update."}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                title="No progress logs yet"
+                description="Use Update Progress to log the next movement on this goal."
+              />
+            )}
+          </CollapsibleGoalSection>
         </div>
 
         <div className="space-y-6">
-          <Card>
-            <CardHeader className="border-b border-white/8 bg-white/[0.025]">
-              <CardTitle>Goal snapshot</CardTitle>
-              <CardDescription>Core details for this goal at a glance.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-3 pt-6 sm:grid-cols-2">
+          <CollapsibleGoalSection
+            id="snapshot"
+            title="Goal details"
+            description="Current value, deadline, owner, and sharing state."
+            icon={<Flag className="h-5 w-5 text-cyan-100" />}
+          >
+            <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-white/8 bg-white/[0.035] p-4">
                 <div className="flex items-center gap-2 text-slate-400">
                   <CheckCircle2 className="h-4 w-4" />
@@ -882,37 +923,22 @@ export default async function GoalDetailPage({
                   {goal.isShared ? "Household" : "Private"}
                 </p>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </CollapsibleGoalSection>
 
-          <Card id="activity">
-            <CardHeader className="border-b border-white/8 bg-white/[0.025]">
-              <CardTitle>Recent activity</CardTitle>
-              <CardDescription>Everything tied to this goal and its milestones.</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <ActivityFeed
-                events={activity}
-                emptyTitle="No activity for this goal yet"
-                emptyDescription="Updates and milestone movement will appear here."
-              />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="border-b border-white/8 bg-white/[0.025]">
-              <CardTitle>Navigation</CardTitle>
-              <CardDescription>Jump back into the rest of the command center.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3 pt-6">
-              <Button asChild variant="secondary" className="w-full">
-                <Link href="/goals">Back to all goals</Link>
-              </Button>
-              <Button asChild variant="outline" className="w-full">
-                <Link href="/">Return to dashboard</Link>
-              </Button>
-            </CardContent>
-          </Card>
+          <CollapsibleGoalSection
+            id="activity"
+            title="Recent activity"
+            description="Open this when you want the full change trail for this goal."
+            icon={<ListChecks className="h-5 w-5 text-cyan-100" />}
+            badge={activity.length ? <Badge>{activity.length} events</Badge> : null}
+          >
+            <ActivityFeed
+              events={activity}
+              emptyTitle="No activity for this goal yet"
+              emptyDescription="Updates and milestone movement will appear here."
+            />
+          </CollapsibleGoalSection>
         </div>
       </section>
     </div>
