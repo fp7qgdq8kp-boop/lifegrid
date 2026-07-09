@@ -25,6 +25,7 @@ import {
 import { ActivityFeed } from "@/components/activity-feed";
 import { EmptyState } from "@/components/empty-state";
 import { GoalFormDialog } from "@/components/goal-form-dialog";
+import { NextMoveActions } from "@/components/next-move-actions";
 import { WeeklyReviewForm } from "@/components/weekly-review-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -258,10 +259,7 @@ function SuggestedMoveCard({
   index: number;
 }) {
   return (
-    <Link
-      href={`/goals/${suggestedMove.goalId}`}
-      className="group block rounded-2xl border border-white/8 bg-white/[0.035] p-4 transition hover:-translate-y-0.5 hover:border-cyan-300/25 hover:bg-white/[0.055]"
-    >
+    <article className="group rounded-2xl border border-white/8 bg-white/[0.035] p-4 transition hover:-translate-y-0.5 hover:border-cyan-300/25 hover:bg-white/[0.055]">
       <div className="flex items-start gap-4">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/15 bg-cyan-400/10 font-heading text-sm font-semibold text-cyan-100">
           {String(index + 1).padStart(2, "0")}
@@ -284,14 +282,24 @@ function SuggestedMoveCard({
             <p className="text-xs text-slate-500">
               {suggestedMove.category.replaceAll("_", " ")}
             </p>
-            <div className="flex items-center gap-2 text-xs text-cyan-100">
-              <span>Open goal</span>
-              <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
-            </div>
+          </div>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <NextMoveActions
+              goalId={suggestedMove.goalId}
+              suggestion={suggestedMove.suggestion}
+              category={suggestedMove.category}
+              className="contents"
+            />
+            <Button variant="ghost" size="sm" asChild>
+              <Link href={`/goals/${suggestedMove.goalId}`}>
+                Open goal
+                <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
+              </Link>
+            </Button>
           </div>
         </div>
       </div>
-    </Link>
+    </article>
   );
 }
 
@@ -471,7 +479,7 @@ export default async function DashboardPage() {
                   Suggested Next Moves
                 </CardTitle>
                 <CardDescription>
-                  Rule-based prompts for what to do next.
+                  Goal rules and weekly review signals translated into action.
                 </CardDescription>
               </div>
               <Button variant="ghost" size="sm" asChild>

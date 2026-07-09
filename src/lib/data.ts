@@ -2,7 +2,13 @@ import { GoalStatus } from "@prisma/client";
 
 import { getViewerContext } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getNextStepSuggestions, getTopNextStepForGoal } from "@/lib/next-steps";
+import {
+  getNextStepSuggestions,
+  getTopNextStepForGoal,
+  getWeeklyReviewNextStepSuggestions,
+  type NextStepSuggestion,
+  sortNextStepSuggestions
+} from "@/lib/next-steps";
 import {
   calculateGoalProgress,
   calculateOverallProgress,
@@ -15,6 +21,21 @@ import {
   pillarWithGoalsArgs,
   weeklyReviewArgs
 } from "@/lib/types";
+
+function uniqueNextStepSuggestions(suggestions: NextStepSuggestion[]) {
+  const seen = new Set<string>();
+
+  return suggestions.filter((suggestion) => {
+    const key = `${suggestion.goalId}-${suggestion.category}`;
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+}
 
 export async function getDashboardData() {
   const { household, user } = await getViewerContext();
@@ -53,7 +74,16 @@ export async function getDashboardData() {
     .filter((goal) => goal.nextAction?.trim())
     .sort((a, b) => a.updatedAt.getTime() - b.updatedAt.getTime())
     .slice(0, 6);
-  const suggestedNextMoves = getNextStepSuggestions(goals).slice(0, 8);
+  const weeklyReviewNextMoves = getWeeklyReviewNextStepSuggestions({
+    review: reviews[0],
+    goals: activeGoals
+  });
+  const suggestedNextMoves = uniqueNextStepSuggestions([
+    ...weeklyReviewNextMoves,
+    ...getNextStepSuggestions(goals)
+  ])
+    .sort(sortNextStepSuggestions)
+    .slice(0, 8);
   const recentWins = activity.filter(
     (event) =>
       event.eventType.includes("completed") ||
@@ -69,6 +99,7 @@ export async function getDashboardData() {
     overallProgress,
     nextActions,
     suggestedNextMoves,
+    weeklyReviewNextMoves,
     stuckGoals,
     goalsMissingNextAction,
     reviews,
@@ -132,6 +163,7 @@ export async function getGoalDetailData(goalId: string) {
   }
 
   const milestoneIds = goal.milestones.map((milestone) => milestone.id);
+  const decisionLogIds = goal.decisionLogs.map((decisionLog) => decisionLog.id);
   const activity = await prisma.activityEvent.findMany({
     where: {
       householdId: household.id,
@@ -145,6 +177,17 @@ export async function getGoalDetailData(goalId: string) {
               entityType: "milestone",
               entityId: {
                 in: milestoneIds
+              }
+            }
+          : {
+              entityType: "goal",
+              entityId: goal.id
+            },
+        decisionLogIds.length
+          ? {
+              entityType: "decision-log",
+              entityId: {
+                in: decisionLogIds
               }
             }
           : {
@@ -201,10 +244,16 @@ export async function getWeeklyReviewPageData() {
     })
   ]);
 
+  const weeklyReviewNextMoves = getWeeklyReviewNextStepSuggestions({
+    review: reviews[0],
+    goals: activeGoals
+  });
+
   return {
     reviews,
     activeGoals,
-    stuckGoals: activeGoals.filter(isGoalStuck)
+    stuckGoals: activeGoals.filter(isGoalStuck),
+    weeklyReviewNextMoves
   };
 }
 

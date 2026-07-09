@@ -2,21 +2,27 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   AlertTriangle,
+  Archive,
   CalendarClock,
   CheckCircle2,
   ChevronLeft,
   Clock3,
+  FileText,
   Flag,
   ListChecks,
   Target,
   UserCircle2
 } from "lucide-react";
 
-import { completeMilestoneAction } from "@/actions/lifegrid";
+import { archiveDecisionLogAction } from "@/actions/lifegrid";
 import { ActivityFeed } from "@/components/activity-feed";
+import { CompleteMilestoneButton } from "@/components/complete-milestone-button";
+import { DecisionLogFormDialog } from "@/components/decision-log-form-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { GoalFormDialog } from "@/components/goal-form-dialog";
+import { MilestoneDetailDialog } from "@/components/milestone-detail-dialog";
 import { MilestoneFormDialog } from "@/components/milestone-form-dialog";
+import { NextMoveActions } from "@/components/next-move-actions";
 import { ProgressBar } from "@/components/progress-bar";
 import { ProgressUpdateDialog } from "@/components/progress-update-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +30,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getGoalDetailData } from "@/lib/data";
 import { formatDate, formatGoalValue, formatRelativeDate } from "@/lib/format";
+import {
+  getMilestoneFieldDefinitions,
+  getMilestoneSummary,
+  hasMilestoneDetails
+} from "@/lib/milestones";
 
 type GoalDetailData = NonNullable<Awaited<ReturnType<typeof getGoalDetailData>>>;
 type GoalRecommendedMove = NonNullable<GoalDetailData["recommendedNextMove"]>;
@@ -33,6 +44,28 @@ function statusVariant(status: string) {
   if (status === "PAUSED") return "warning" as const;
   if (status === "ARCHIVED") return "default" as const;
   return "accent" as const;
+}
+
+function decisionLogStatusVariant(status: string) {
+  if (status === "active") return "success" as const;
+  if (status === "reconsidering") return "warning" as const;
+  if (status === "rejected" || status === "replaced") return "danger" as const;
+  return "default" as const;
+}
+
+function isPastReviewDate(value: Date | string | null) {
+  if (!value) {
+    return false;
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return false;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return date < today;
 }
 
 function humanize(value: string) {
@@ -66,6 +99,11 @@ export default async function GoalDetailPage({
   const completedMilestones = goal.milestones.filter(
     (milestone) => milestone.status === "COMPLETED"
   ).length;
+  const decisionLogs = [...goal.decisionLogs].sort(
+    (a, b) =>
+      Number(a.status === "archived") - Number(b.status === "archived") ||
+      b.updatedAt.getTime() - a.updatedAt.getTime()
+  );
 
   return (
     <div className="space-y-6 pb-10">
@@ -175,6 +213,12 @@ export default async function GoalDetailPage({
               <p className="mt-2 text-sm leading-6 text-cyan-50/75">
                 {recommendedNextMove.reason}
               </p>
+              <NextMoveActions
+                goalId={recommendedNextMove.goalId}
+                suggestion={recommendedNextMove.suggestion}
+                category={recommendedNextMove.category}
+                className="mt-5"
+              />
             </div>
           ) : (
             <div className="rounded-2xl border border-emerald-300/15 bg-emerald-400/10 p-5">
@@ -245,12 +289,120 @@ export default async function GoalDetailPage({
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-cyan-100" />
+                    Decisions
+                  </CardTitle>
+                  <CardDescription>
+                    A log of choices, research notes, rejected options, and review points for this
+                    goal.
+                  </CardDescription>
+                </div>
+                <DecisionLogFormDialog goalId={goal.id} triggerLabel="Add Decision" />
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-6">
+              {decisionLogs.length ? (
+                decisionLogs.map((decisionLog) => {
+                  const reviewIsPast = isPastReviewDate(decisionLog.reviewDate);
+
+                  return (
+                    <article
+                      key={decisionLog.id}
+                      className={
+                        decisionLog.status === "archived"
+                          ? "rounded-2xl border border-white/8 bg-white/[0.02] p-4 opacity-75"
+                          : "rounded-2xl border border-white/8 bg-white/[0.035] p-4"
+                      }
+                    >
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant="accent">{decisionLog.category}</Badge>
+                            <Badge variant={decisionLogStatusVariant(decisionLog.status)}>
+                              {decisionLog.status}
+                            </Badge>
+                            {reviewIsPast ? <Badge variant="warning">Review due</Badge> : null}
+                          </div>
+                          <h4 className="mt-3 text-lg font-semibold text-white">
+                            {decisionLog.title}
+                          </h4>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <DecisionLogFormDialog
+                            goalId={goal.id}
+                            decisionLog={decisionLog}
+                            triggerLabel="Edit"
+                            triggerVariant="outline"
+                            triggerSize="sm"
+                          />
+                          {decisionLog.status !== "archived" ? (
+                            <form action={archiveDecisionLogAction}>
+                              <input
+                                type="hidden"
+                                name="decisionLogId"
+                                value={decisionLog.id}
+                              />
+                              <Button type="submit" variant="danger" size="sm">
+                                <Archive className="h-4 w-4" />
+                                Archive
+                              </Button>
+                            </form>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <div className="mt-4 grid gap-3 md:grid-cols-2">
+                        <div className="rounded-2xl border border-cyan-300/10 bg-cyan-400/[0.055] p-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100/75">
+                            Decision
+                          </p>
+                          <p className="mt-2 text-sm leading-6 text-slate-200/85">
+                            {decisionLog.decision}
+                          </p>
+                        </div>
+                        <div className="rounded-2xl border border-white/8 bg-slate-950/30 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                            Reason
+                          </p>
+                          <p className="mt-2 text-sm leading-6 text-slate-300/80">
+                            {decisionLog.reason}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-400">
+                        <span>
+                          Review:{" "}
+                          <span className={reviewIsPast ? "text-amber-100" : "text-slate-300"}>
+                            {formatDate(decisionLog.reviewDate)}
+                          </span>
+                        </span>
+                        <span>Created {formatRelativeDate(decisionLog.createdAt)}</span>
+                        <span>Updated {formatRelativeDate(decisionLog.updatedAt)}</span>
+                      </div>
+                    </article>
+                  );
+                })
+              ) : (
+                <EmptyState
+                  title="No decisions logged yet"
+                  description="Use Add Decision to capture the first major choice, research note, rejected option, or lesson for this goal."
+                />
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="border-b border-white/8 bg-white/[0.025]">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
                     <ListChecks className="h-5 w-5 text-cyan-100" />
                     Milestones
                   </CardTitle>
                   <CardDescription>
-                    Checklist goals derive progress from milestones. Other goals can still use them
-                    as structure.
+                    Milestones are planning records: open them to review reasoning, evidence,
+                    choices, and outcomes.
                   </CardDescription>
                 </div>
                 <MilestoneFormDialog goalId={goal.id} />
@@ -258,59 +410,90 @@ export default async function GoalDetailPage({
             </CardHeader>
             <CardContent className="space-y-3 pt-6">
               {goal.milestones.length ? (
-                goal.milestones.map((milestone, index) => (
-                  <div
-                    key={milestone.id}
-                    className="rounded-2xl border border-white/8 bg-white/[0.035] p-4"
-                  >
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="flex items-start gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-300/15 bg-cyan-400/10 font-heading text-sm font-semibold text-cyan-100">
-                          {index + 1}
-                        </div>
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-medium text-white">{milestone.title}</p>
-                            <Badge
-                              variant={
-                                milestone.status === "COMPLETED"
-                                  ? "success"
-                                  : milestone.status === "ACTIVE"
-                                    ? "accent"
-                                    : "default"
-                              }
-                            >
-                              {humanize(milestone.status)}
-                            </Badge>
+                goal.milestones.map((milestone, index) => {
+                  const fieldDefinitions = getMilestoneFieldDefinitions(goal, milestone.title);
+                  const summary = getMilestoneSummary(milestone, fieldDefinitions);
+                  const milestoneHasDetails = hasMilestoneDetails(milestone);
+
+                  return (
+                    <div
+                      key={milestone.id}
+                      className="rounded-2xl border border-white/8 bg-white/[0.035] p-4"
+                    >
+                      <div className="flex flex-col gap-4">
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-300/15 bg-cyan-400/10 font-heading text-sm font-semibold text-cyan-100">
+                            {index + 1}
                           </div>
-                          {milestone.description ? (
-                            <p className="mt-2 text-sm leading-6 text-slate-300/75">
-                              {milestone.description}
-                            </p>
-                          ) : null}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-medium text-white">{milestone.title}</p>
+                              <Badge
+                                variant={
+                                  milestone.status === "COMPLETED"
+                                    ? "success"
+                                    : milestone.status === "ACTIVE"
+                                      ? "accent"
+                                      : "default"
+                                }
+                              >
+                                {humanize(milestone.status)}
+                              </Badge>
+                              {milestoneHasDetails ? (
+                                <Badge variant="accent">Details saved</Badge>
+                              ) : null}
+                            </div>
+                            <div className="mt-3 rounded-xl border border-white/8 bg-slate-950/30 p-3">
+                              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                Summary
+                              </p>
+                              <p className="mt-2 text-sm leading-6 text-slate-300/85">
+                                {summary}
+                              </p>
+                            </div>
+                            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-400">
+                              <span>Updated {formatRelativeDate(milestone.updatedAt)}</span>
+                              {milestone.status === "COMPLETED" ? (
+                                <span className="text-emerald-200/75">
+                                  Completed{" "}
+                                  {formatRelativeDate(
+                                    milestone.completedAt ?? milestone.updatedAt
+                                  )}
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+                          <MilestoneDetailDialog
+                            goalTitle={goal.title}
+                            milestone={milestone}
+                            fieldDefinitions={fieldDefinitions}
+                            triggerLabel="Open / Review"
+                            triggerVariant="secondary"
+                          />
+                          <MilestoneDetailDialog
+                            goalTitle={goal.title}
+                            milestone={milestone}
+                            fieldDefinitions={fieldDefinitions}
+                            triggerLabel="Edit Details"
+                            initialMode="edit"
+                            triggerVariant="outline"
+                          />
+                          <CompleteMilestoneButton
+                            milestoneId={milestone.id}
+                            hasSavedDetails={milestoneHasDetails}
+                            isCompleted={milestone.status === "COMPLETED"}
+                          />
                         </div>
                       </div>
-                      {milestone.status === "COMPLETED" ? (
-                        <p className="text-xs text-emerald-200/75">
-                          Completed{" "}
-                          {formatRelativeDate(milestone.completedAt ?? milestone.updatedAt)}
-                        </p>
-                      ) : (
-                        <form action={completeMilestoneAction}>
-                          <input type="hidden" name="milestoneId" value={milestone.id} />
-                          <Button type="submit" variant="secondary" size="sm">
-                            <CheckCircle2 className="h-4 w-4" />
-                            Mark complete
-                          </Button>
-                        </form>
-                      )}
                     </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <EmptyState
                   title="No milestones yet"
-                  description="Milestones will break this goal into smaller, visible wins."
+                  description="Milestones will hold decisions, notes, references, and outcomes for this goal."
                 />
               )}
             </CardContent>

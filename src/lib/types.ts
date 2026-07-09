@@ -14,6 +14,16 @@ export const goalCardArgs = Prisma.validator<Prisma.GoalDefaultArgs>()({
         createdAt: "desc"
       },
       take: 8
+    },
+    decisionLogs: {
+      orderBy: [
+        {
+          status: "asc"
+        },
+        {
+          updatedAt: "desc"
+        }
+      ]
     }
   }
 });
@@ -53,4 +63,3 @@ export const weeklyReviewArgs = Prisma.validator<Prisma.WeeklyReviewDefaultArgs>
 });
 
 export type WeeklyReviewWithAuthor = Prisma.WeeklyReviewGetPayload<typeof weeklyReviewArgs>;
-

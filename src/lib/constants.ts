@@ -16,6 +16,40 @@ export const goalStatusOptions = [
   { value: "ARCHIVED", label: "Archived" }
 ] as const;
 
+export const decisionLogCategoryValues = [
+  "decision",
+  "research",
+  "option",
+  "rejection",
+  "note",
+  "lesson"
+] as const;
+
+export const decisionLogStatusValues = [
+  "active",
+  "reconsidering",
+  "rejected",
+  "replaced",
+  "archived"
+] as const;
+
+export const decisionLogCategoryOptions = [
+  { value: "decision", label: "Decision" },
+  { value: "research", label: "Research" },
+  { value: "option", label: "Option" },
+  { value: "rejection", label: "Rejection" },
+  { value: "note", label: "Note" },
+  { value: "lesson", label: "Lesson" }
+] as const;
+
+export const decisionLogStatusOptions = [
+  { value: "active", label: "Active" },
+  { value: "reconsidering", label: "Reconsidering" },
+  { value: "rejected", label: "Rejected" },
+  { value: "replaced", label: "Replaced" },
+  { value: "archived", label: "Archived" }
+] as const;
+
 export const navigation = [
   { href: "/", label: "Dashboard", description: "Life progress at a glance" },
   { href: "/pillars", label: "Life Pillars", description: "See momentum by domain" },
@@ -33,4 +67,3 @@ export const pillarIconMap: Record<string, string> = {
   Health: "HeartPulse",
   Relationship: "HeartHandshake"
 };
-

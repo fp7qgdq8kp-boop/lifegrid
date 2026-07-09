@@ -1,15 +1,58 @@
 import { startOfWeek, format } from "date-fns";
-import { AlertTriangle } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, ArrowRight, Target } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
+import { NextMoveActions } from "@/components/next-move-actions";
 import { WeeklyReviewForm } from "@/components/weekly-review-form";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getWeeklyReviewPageData } from "@/lib/data";
 import { formatDate } from "@/lib/format";
 
+type WeeklyReviewData = Awaited<ReturnType<typeof getWeeklyReviewPageData>>;
+type WeeklyReviewNextMove = WeeklyReviewData["weeklyReviewNextMoves"][number];
+
+function getPriorityVariant(priority: WeeklyReviewNextMove["priority"]) {
+  if (priority === "high") return "danger" as const;
+  if (priority === "medium") return "warning" as const;
+  return "accent" as const;
+}
+
+function WeeklyReviewMoveCard({ move }: { move: WeeklyReviewNextMove }) {
+  return (
+    <article className="rounded-2xl border border-white/8 bg-white/[0.035] p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant={getPriorityVariant(move.priority)}>{move.priority}</Badge>
+        <Badge variant="accent">{move.pillarName}</Badge>
+        <Badge>{move.category.replaceAll("_", " ")}</Badge>
+      </div>
+      <p className="mt-3 font-medium leading-6 text-white">{move.suggestion}</p>
+      <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+        {move.goalTitle}
+      </p>
+      <p className="mt-2 text-sm leading-6 text-slate-300/75">{move.reason}</p>
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+        <NextMoveActions
+          goalId={move.goalId}
+          suggestion={move.suggestion}
+          category={move.category}
+          className="contents"
+        />
+        <Button variant="ghost" size="sm" asChild>
+          <Link href={`/goals/${move.goalId}`}>
+            Open goal
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </Button>
+      </div>
+    </article>
+  );
+}
+
 export default async function WeeklyReviewPage() {
-  const { reviews, stuckGoals } = await getWeeklyReviewPageData();
+  const { reviews, stuckGoals, weeklyReviewNextMoves } = await getWeeklyReviewPageData();
   const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
 
   return (
@@ -40,6 +83,33 @@ export default async function WeeklyReviewPage() {
         </Card>
 
         <div className="space-y-6">
+          <Card className="overflow-hidden border-cyan-300/10">
+            <CardHeader className="border-b border-white/8 bg-cyan-400/[0.035]">
+              <CardTitle className="flex items-center gap-2">
+                <Target className="h-5 w-5 text-cyan-100" />
+                Suggested moves for next week
+              </CardTitle>
+              <CardDescription>
+                The latest review translated into concrete goal actions.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 pt-6">
+              {weeklyReviewNextMoves.length ? (
+                weeklyReviewNextMoves.map((move) => (
+                  <WeeklyReviewMoveCard
+                    key={`${move.goalId}-${move.category}`}
+                    move={move}
+                  />
+                ))
+              ) : (
+                <EmptyState
+                  title="No review-based moves yet"
+                  description="Save a weekly review and LifeGrid will turn its focus, friction, and cut-or-pause notes into suggested goal actions."
+                />
+              )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Stuck goals to review</CardTitle>
@@ -121,4 +191,3 @@ export default async function WeeklyReviewPage() {
     </div>
   );
 }
-

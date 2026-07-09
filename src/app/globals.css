@@ -36,12 +36,15 @@
   html {
     color-scheme: dark;
     min-height: 100%;
+    overflow-x: hidden;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
+    min-height: 100svh;
     min-height: 100dvh;
     overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
     font-family: var(--font-manrope), sans-serif;
     background-image:
       radial-gradient(circle at top, rgba(14, 165, 233, 0.1), transparent 22%),

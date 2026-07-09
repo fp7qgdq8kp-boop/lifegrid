@@ -2,15 +2,23 @@ import { calculateGoalProgress } from "@/lib/progress";
 
 export type NextStepPriority = "low" | "medium" | "high";
 
-export type NextStepCategory =
-  | "missing_next_action"
-  | "stale_goal"
-  | "blocked_goal"
-  | "missing_milestones"
-  | "deadline_risk"
-  | "missing_progress"
-  | "checklist_next_milestone"
-  | "completion_ready";
+export const nextStepCategories = [
+  "missing_next_action",
+  "stale_goal",
+  "blocked_goal",
+  "missing_milestones",
+  "deadline_risk",
+  "missing_progress",
+  "checklist_next_milestone",
+  "completion_ready",
+  "missing_decision_log",
+  "missing_location_decision",
+  "decision_review_due",
+  "weekly_review_focus",
+  "weekly_review_cut_or_pause"
+] as const;
+
+export type NextStepCategory = (typeof nextStepCategories)[number];
 
 export type NextStepSuggestion = {
   goalId: string;
@@ -36,10 +44,29 @@ type NextStepGoal = {
   pillar: {
     name: string;
   };
+  description?: string | null;
   milestones: Array<{
     title: string;
+    description?: string | null;
     status: string;
   }>;
+  decisionLogs?: Array<{
+    title: string;
+    decision: string;
+    reason: string;
+    category: string;
+    status: string;
+    reviewDate: Date | string | null;
+  }>;
+};
+
+type WeeklyReviewLike = {
+  weekStartDate: Date | string;
+  wins: string;
+  stuckPoints: string;
+  focusNextWeek: string;
+  cutOrPause: string;
+  notes?: string | null;
 };
 
 const staleGoalDays = 14;
@@ -58,12 +85,40 @@ const categoryRank: Record<NextStepCategory, number> = {
   blocked_goal: 0,
   completion_ready: 1,
   deadline_risk: 2,
-  missing_next_action: 3,
-  missing_progress: 4,
-  stale_goal: 5,
-  missing_milestones: 6,
-  checklist_next_milestone: 7
+  decision_review_due: 3,
+  missing_location_decision: 4,
+  weekly_review_focus: 5,
+  missing_next_action: 6,
+  missing_decision_log: 7,
+  missing_progress: 8,
+  stale_goal: 9,
+  weekly_review_cut_or_pause: 10,
+  missing_milestones: 11,
+  checklist_next_milestone: 12
 };
+
+const stopWords = new Set([
+  "and",
+  "are",
+  "for",
+  "from",
+  "into",
+  "next",
+  "not",
+  "our",
+  "the",
+  "this",
+  "that",
+  "then",
+  "with",
+  "week",
+  "what",
+  "when",
+  "where",
+  "will",
+  "you",
+  "your"
+]);
 
 function toDate(value: Date | string | null | undefined) {
   if (!value) {
@@ -98,11 +153,53 @@ function normalizePillarName(name: string) {
   return name.trim().toLowerCase();
 }
 
+function normalizeSearchText(value: string | null | undefined) {
+  return value?.replace(/\s+/g, " ").trim().toLowerCase() ?? "";
+}
+
 function isActionable(goal: NextStepGoal) {
   return !nonActionableStatuses.has(goal.status);
 }
 
-function sortSuggestions(a: NextStepSuggestion, b: NextStepSuggestion) {
+function hasActiveLocationDecision(goal: NextStepGoal) {
+  const locationTerms = [
+    "area",
+    "areas",
+    "county",
+    "counties",
+    "location",
+    "locations",
+    "target",
+    "dunnellon",
+    "williston"
+  ];
+
+  return (goal.decisionLogs ?? []).some((decisionLog) => {
+    if (decisionLog.status !== "active") {
+      return false;
+    }
+
+    if (decisionLog.category !== "decision" && decisionLog.category !== "option") {
+      return false;
+    }
+
+    const text = normalizeSearchText(
+      `${decisionLog.title} ${decisionLog.decision} ${decisionLog.reason}`
+    );
+
+    return locationTerms.some((term) => text.includes(term));
+  });
+}
+
+function formatReviewDate(value: Date) {
+  return value.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  });
+}
+
+export function sortNextStepSuggestions(a: NextStepSuggestion, b: NextStepSuggestion) {
   return (
     priorityRank[a.priority] - priorityRank[b.priority] ||
     categoryRank[a.category] - categoryRank[b.category] ||
@@ -131,6 +228,7 @@ export function getNextStepSuggestions(
     const missingCurrentValue = goal.currentValue === null || goal.currentValue === undefined;
     const pillarName = goal.pillar.name;
     const normalizedPillarName = normalizePillarName(pillarName);
+    const decisionLogs = goal.decisionLogs ?? [];
 
     const addSuggestion = (
       suggestion: string,
@@ -178,6 +276,42 @@ export function getNextStepSuggestions(
           "deadline_risk"
         );
       }
+    }
+
+    if (isActive && !decisionLogs.length) {
+      addSuggestion(
+        "Log the first major decision or research note for this goal.",
+        "Active goals need a decision trail so future reviews can explain what changed and why.",
+        "medium",
+        "missing_decision_log"
+      );
+    }
+
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+    const dueDecisionLog = decisionLogs
+      .filter((decisionLog) => decisionLog.status !== "archived")
+      .map((decisionLog) => ({
+        ...decisionLog,
+        parsedReviewDate: toDate(decisionLog.reviewDate)
+      }))
+      .filter(
+        (decisionLog) =>
+          decisionLog.parsedReviewDate !== null &&
+          decisionLog.parsedReviewDate < startOfToday
+      )
+      .sort(
+        (a, b) =>
+          (a.parsedReviewDate?.getTime() ?? 0) - (b.parsedReviewDate?.getTime() ?? 0)
+      )[0];
+
+    if (dueDecisionLog?.parsedReviewDate) {
+      addSuggestion(
+        `Review the decision "${dueDecisionLog.title}".`,
+        `Its review date was ${formatReviewDate(dueDecisionLog.parsedReviewDate)}.`,
+        "high",
+        "decision_review_due"
+      );
     }
 
     if (!hasNextAction) {
@@ -294,6 +428,15 @@ export function getNextStepSuggestions(
     }
 
     if (normalizedPillarName === "home / land" || normalizedPillarName === "home/land") {
+      if (!hasActiveLocationDecision(goal)) {
+        addSuggestion(
+          "Choose target areas for the land search and log that location decision.",
+          "Home / Land goals need an active location decision before parcel research can narrow.",
+          "medium",
+          "missing_location_decision"
+        );
+      }
+
       if (!hasNextAction) {
         addSuggestion(
           "Define target counties for the search.",
@@ -350,9 +493,183 @@ export function getNextStepSuggestions(
     }
   }
 
-  return suggestions.sort(sortSuggestions);
+  return suggestions.sort(sortNextStepSuggestions);
 }
 
 export function getTopNextStepForGoal(goal: NextStepGoal, now = new Date()) {
   return getNextStepSuggestions([goal], now)[0] ?? null;
+}
+
+function normalizeReviewText(value: string | null | undefined) {
+  return value?.replace(/\s+/g, " ").trim() ?? "";
+}
+
+function excerpt(value: string, maxLength = 150) {
+  const text = normalizeReviewText(value);
+
+  if (text.length <= maxLength) {
+    return text;
+  }
+
+  return `${text.slice(0, maxLength - 1).trim()}...`;
+}
+
+function tokenize(value: string) {
+  return normalizeReviewText(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s/]/g, " ")
+    .split(/\s+/)
+    .filter((token) => token.length > 2 && !stopWords.has(token));
+}
+
+function goalSearchText(goal: NextStepGoal) {
+  return [
+    goal.title,
+    goal.description,
+    goal.pillar.name,
+    goal.nextAction,
+    goal.blocker,
+    goal.goalType,
+    ...goal.milestones.flatMap((milestone) => [milestone.title, milestone.description]),
+    ...(goal.decisionLogs ?? []).flatMap((decisionLog) => [
+      decisionLog.title,
+      decisionLog.decision,
+      decisionLog.reason,
+      decisionLog.category,
+      decisionLog.status
+    ])
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function scoreGoalForReviewText(goal: NextStepGoal, reviewText: string) {
+  const reviewTokens = tokenize(reviewText);
+  const goalTokens = new Set(tokenize(goalSearchText(goal)));
+
+  if (!reviewTokens.length || !goalTokens.size) {
+    return 0;
+  }
+
+  return reviewTokens.reduce((score, token) => score + (goalTokens.has(token) ? 1 : 0), 0);
+}
+
+function pickReviewGoal(goals: NextStepGoal[], reviewText: string, preferStuck = false) {
+  const activeGoals = goals.filter((goal) => goal.status === "ACTIVE");
+
+  if (!activeGoals.length) {
+    return null;
+  }
+
+  return [...activeGoals].sort((a, b) => {
+    const scoreDelta =
+      scoreGoalForReviewText(b, reviewText) - scoreGoalForReviewText(a, reviewText);
+    const stuckDelta =
+      Number(Boolean(b.blocker?.trim()) || !b.nextAction?.trim()) -
+      Number(Boolean(a.blocker?.trim()) || !a.nextAction?.trim());
+
+    const aUpdatedAt = toDate(a.updatedAt)?.getTime() ?? 0;
+    const bUpdatedAt = toDate(b.updatedAt)?.getTime() ?? 0;
+
+    return scoreDelta || (preferStuck ? stuckDelta : 0) || aUpdatedAt - bUpdatedAt;
+  })[0];
+}
+
+function reviewReason(label: string, review: WeeklyReviewLike, text: string) {
+  const reviewDate = toDate(review.weekStartDate);
+  const dateLabel = reviewDate
+    ? reviewDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    : "latest review";
+
+  return `${label} from the ${dateLabel} weekly review: ${excerpt(text, 120)}`;
+}
+
+export function getWeeklyReviewNextStepSuggestions({
+  review,
+  goals
+}: {
+  review: WeeklyReviewLike | null | undefined;
+  goals: NextStepGoal[];
+}): NextStepSuggestion[] {
+  if (!review) {
+    return [];
+  }
+
+  const suggestions: NextStepSuggestion[] = [];
+  const used = new Set<string>();
+
+  const addReviewSuggestion = ({
+    text,
+    category,
+    priority,
+    suggestion,
+    reasonLabel,
+    preferStuck = false
+  }: {
+    text: string;
+    category: NextStepCategory;
+    priority: NextStepPriority;
+    suggestion: string;
+    reasonLabel: string;
+    preferStuck?: boolean;
+  }) => {
+    const normalizedText = normalizeReviewText(text);
+
+    if (!normalizedText) {
+      return;
+    }
+
+    const goal = pickReviewGoal(goals, normalizedText, preferStuck);
+
+    if (!goal) {
+      return;
+    }
+
+    const key = `${goal.id}-${category}`;
+    if (used.has(key)) {
+      return;
+    }
+
+    used.add(key);
+    suggestions.push({
+      goalId: goal.id,
+      goalTitle: goal.title,
+      pillarName: goal.pillar.name,
+      suggestion,
+      reason: reviewReason(reasonLabel, review, normalizedText),
+      priority,
+      category
+    });
+  };
+
+  addReviewSuggestion({
+    text: review.stuckPoints,
+    category: "blocked_goal",
+    priority: "high",
+    suggestion: `Turn this weekly stuck point into an unblock action: ${excerpt(
+      review.stuckPoints
+    )}`,
+    reasonLabel: "Stuck point",
+    preferStuck: true
+  });
+
+  addReviewSuggestion({
+    text: review.focusNextWeek,
+    category: "weekly_review_focus",
+    priority: "medium",
+    suggestion: `Make this weekly focus concrete: ${excerpt(review.focusNextWeek)}`,
+    reasonLabel: "Focus",
+    preferStuck: false
+  });
+
+  addReviewSuggestion({
+    text: review.cutOrPause,
+    category: "weekly_review_cut_or_pause",
+    priority: "medium",
+    suggestion: `Decide what to cut or pause this week: ${excerpt(review.cutOrPause)}`,
+    reasonLabel: "Cut or pause",
+    preferStuck: true
+  });
+
+  return suggestions.sort(sortNextStepSuggestions);
 }
