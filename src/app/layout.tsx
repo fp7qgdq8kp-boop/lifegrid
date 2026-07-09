@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Manrope, Space_Grotesk } from "next/font/google";
 
 import "@/app/globals.css";
+import { ServiceWorkerRegister } from "@/components/service-worker-register";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -45,6 +46,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className={`${manrope.variable} ${spaceGrotesk.variable} font-sans`}>
+        <ServiceWorkerRegister />
         {children}
       </body>
     </html>
