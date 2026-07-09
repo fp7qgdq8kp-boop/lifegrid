@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-label="LifeGrid">
+  <defs>
+    <linearGradient id="apple-bg" x1="22" x2="158" y1="18" y2="162" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0e7490" />
+      <stop offset="0.55" stop-color="#0f172a" />
+      <stop offset="1" stop-color="#047857" />
+    </linearGradient>
+    <linearGradient id="apple-line" x1="52" x2="128" y1="52" y2="128" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#67e8f9" />
+      <stop offset="1" stop-color="#6ee7b7" />
+    </linearGradient>
+  </defs>
+  <rect width="180" height="180" rx="40" fill="#020617" />
+  <rect x="8" y="8" width="164" height="164" rx="34" fill="url(#apple-bg)" />
+  <path d="M48 58h84M48 90h84M48 122h84M58 48v84M90 48v84M122 48v84" stroke="#e0f2fe" stroke-opacity="0.16" stroke-width="5" stroke-linecap="round" />
+  <path d="M58 90h64M90 58v64" stroke="url(#apple-line)" stroke-width="10" stroke-linecap="round" />
+  <circle cx="90" cy="90" r="16" fill="#020617" stroke="#a7f3d0" stroke-width="7" />
+  <path d="M58 138h64" stroke="#f8fafc" stroke-opacity="0.76" stroke-width="7" stroke-linecap="round" />
+</svg>

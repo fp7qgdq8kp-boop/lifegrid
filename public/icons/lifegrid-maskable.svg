@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="LifeGrid">
+  <defs>
+    <radialGradient id="maskable-bg" cx="50%" cy="46%" r="70%">
+      <stop offset="0" stop-color="#155e75" />
+      <stop offset="0.58" stop-color="#0f172a" />
+      <stop offset="1" stop-color="#022c22" />
+    </radialGradient>
+    <linearGradient id="maskable-line" x1="126" x2="386" y1="126" y2="386" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#67e8f9" />
+      <stop offset="1" stop-color="#34d399" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#maskable-bg)" />
+  <path d="M120 160h272M120 256h272M120 352h272M160 120v272M256 120v272M352 120v272" stroke="#e2e8f0" stroke-opacity="0.13" stroke-width="12" stroke-linecap="round" />
+  <path d="M152 256h208M256 152v208" stroke="url(#maskable-line)" stroke-width="28" stroke-linecap="round" />
+  <circle cx="256" cy="256" r="54" fill="#020617" stroke="#a7f3d0" stroke-width="20" />
+  <path d="M160 392h192" stroke="#f8fafc" stroke-opacity="0.75" stroke-width="20" stroke-linecap="round" />
+</svg>
