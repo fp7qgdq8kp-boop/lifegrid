@@ -136,6 +136,14 @@ export default async function GoalDetailPage({
       label: `Milestone: ${milestone.title}`
     }))
   ];
+  const sectionLinks = [
+    { href: "#recommended", label: "Next move" },
+    { href: "#next-action", label: "Next / blocker" },
+    { href: "#decisions", label: "Decisions" },
+    { href: "#milestones", label: "Milestones" },
+    { href: "#notes", label: "Notes" },
+    { href: "#activity", label: "Activity" }
+  ];
 
   return (
     <div className="space-y-6 pb-10">
@@ -209,7 +217,30 @@ export default async function GoalDetailPage({
         </div>
       </section>
 
+      <nav
+        aria-label="Goal sections"
+        className="rounded-2xl border border-white/8 bg-slate-950/70 p-3 shadow-panel"
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <p className="px-2 text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+            Jump to
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {sectionLinks.map((section) => (
+              <a
+                key={section.href}
+                href={section.href}
+                className="rounded-xl border border-white/8 bg-white/[0.035] px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-cyan-300/25 hover:bg-cyan-400/10 hover:text-cyan-100"
+              >
+                {section.label}
+              </a>
+            ))}
+          </div>
+        </div>
+      </nav>
+
       <Card
+        id="recommended"
         className={recommendedNextMove ? "overflow-hidden border-cyan-300/15" : "overflow-hidden"}
       >
         <CardHeader className="border-b border-white/8 bg-white/[0.025]">
@@ -266,7 +297,10 @@ export default async function GoalDetailPage({
 
       <section className="grid gap-6 xl:grid-cols-[1fr,0.9fr]">
         <div className="space-y-6">
-          <Card className={missingNextAction || hasBlocker ? "border-amber-300/15" : undefined}>
+          <Card
+            id="next-action"
+            className={missingNextAction || hasBlocker ? "border-amber-300/15" : undefined}
+          >
             <CardHeader className="border-b border-white/8 bg-white/[0.025]">
               <CardTitle className="flex items-center gap-2">
                 <Target className="h-5 w-5 text-cyan-100" />
@@ -316,7 +350,7 @@ export default async function GoalDetailPage({
             </CardContent>
           </Card>
 
-          <Card>
+          <Card id="notes">
             <CardHeader className="border-b border-white/8 bg-white/[0.025]">
               <CardTitle className="flex items-center gap-2">
                 <MessageSquare className="h-5 w-5 text-cyan-100" />
@@ -537,7 +571,7 @@ export default async function GoalDetailPage({
             </CardContent>
           </Card>
 
-          <Card>
+          <Card id="decisions">
             <CardHeader className="border-b border-white/8 bg-white/[0.025]">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
@@ -646,7 +680,7 @@ export default async function GoalDetailPage({
             </CardContent>
           </Card>
 
-          <Card>
+          <Card id="milestones">
             <CardHeader className="border-b border-white/8 bg-white/[0.025]">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
@@ -754,7 +788,7 @@ export default async function GoalDetailPage({
             </CardContent>
           </Card>
 
-          <Card>
+          <Card id="progress">
             <CardHeader className="border-b border-white/8 bg-white/[0.025]">
               <CardTitle>Progress history</CardTitle>
               <CardDescription>
@@ -851,7 +885,7 @@ export default async function GoalDetailPage({
             </CardContent>
           </Card>
 
-          <Card>
+          <Card id="activity">
             <CardHeader className="border-b border-white/8 bg-white/[0.025]">
               <CardTitle>Recent activity</CardTitle>
               <CardDescription>Everything tied to this goal and its milestones.</CardDescription>
