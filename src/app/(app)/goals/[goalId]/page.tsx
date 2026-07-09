@@ -24,6 +24,7 @@ import {
   submitReviewRequestAction
 } from "@/actions/lifegrid";
 import { ActivityFeed } from "@/components/activity-feed";
+import { CompleteGoalButton } from "@/components/complete-goal-button";
 import { CompleteMilestoneButton } from "@/components/complete-milestone-button";
 import { DecisionLogFormDialog } from "@/components/decision-log-form-dialog";
 import { EmptyState } from "@/components/empty-state";
@@ -109,6 +110,7 @@ export default async function GoalDetailPage({
   const completedMilestones = goal.milestones.filter(
     (milestone) => milestone.status === "COMPLETED"
   ).length;
+  const openMilestoneCount = goal.milestones.length - completedMilestones;
   const decisionLogs = [...goal.decisionLogs].sort(
     (a, b) =>
       Number(a.status === "archived") - Number(b.status === "archived") ||
@@ -173,17 +175,17 @@ export default async function GoalDetailPage({
                 nextAction={goal.nextAction}
                 blocker={goal.blocker}
               />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <CompleteGoalButton
+                  goalId={goal.id}
+                  isCompleted={goal.status === "COMPLETED"}
+                  openMilestoneCount={openMilestoneCount}
+                />
                 <GoalFormDialog
                   pillars={pillars.map((pillar) => ({ id: pillar.id, name: pillar.name }))}
                   goal={goal}
                   triggerLabel="Edit Goal"
                   triggerVariant="outline"
-                />
-                <MilestoneFormDialog
-                  goalId={goal.id}
-                  triggerLabel="Add Milestone"
-                  triggerVariant="secondary"
                 />
               </div>
             </div>

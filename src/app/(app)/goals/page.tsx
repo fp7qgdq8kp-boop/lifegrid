@@ -1,53 +1,11 @@
-import type { LucideIcon } from "lucide-react";
-import { AlertTriangle, CircleCheckBig, Layers3, Target } from "lucide-react";
+import { Layers3 } from "lucide-react";
 
 import { GoalFormDialog } from "@/components/goal-form-dialog";
 import { GoalCard } from "@/components/goal-card";
 import { EmptyState } from "@/components/empty-state";
-import { PillarCard } from "@/components/pillar-card";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getGoalsPageData } from "@/lib/data";
-
-function Metric({
-  label,
-  value,
-  detail,
-  icon: Icon,
-  tone = "default"
-}: {
-  label: string;
-  value: string;
-  detail: string;
-  icon: LucideIcon;
-  tone?: "default" | "success" | "warning";
-}) {
-  const toneClass =
-    tone === "success"
-      ? "border-emerald-300/20 bg-emerald-400/10 text-emerald-100"
-      : tone === "warning"
-        ? "border-amber-300/20 bg-amber-400/10 text-amber-100"
-        : "border-cyan-300/20 bg-cyan-400/10 text-cyan-100";
-
-  return (
-    <Card>
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-              {label}
-            </p>
-            <p className="mt-3 font-heading text-3xl font-semibold text-white">{value}</p>
-            <p className="mt-2 text-sm leading-6 text-slate-300/70">{detail}</p>
-          </div>
-          <div className={`rounded-2xl border p-3 ${toneClass}`}>
-            <Icon className="h-5 w-5" />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
 export default async function GoalsPage() {
   const { goals, pillars } = await getGoalsPageData();
@@ -58,6 +16,7 @@ export default async function GoalsPage() {
   ).length;
   const blockedCount = goals.filter((goal) => goal.status === "ACTIVE" && goal.blocker?.trim())
     .length;
+  const attentionCount = missingNextActionCount + blockedCount;
 
   return (
     <div className="space-y-6 pb-10">
@@ -68,14 +27,15 @@ export default async function GoalsPage() {
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="accent">Goals</Badge>
-              <Badge>{goals.length} total</Badge>
+              <Badge>{activeCount} active</Badge>
+              <Badge variant="success">{completedCount} complete</Badge>
+              {attentionCount ? <Badge variant="warning">{attentionCount} need attention</Badge> : null}
             </div>
             <h2 className="mt-5 max-w-3xl font-heading text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-              Goal command board
+              Goals, without the clutter.
             </h2>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-200/80 sm:text-base">
-              Every Bentley Family goal grouped by pillar, with progress, blockers, and missing next
-              actions surfaced before they can drift.
+              A simple list of what Jay and Skye are moving, grouped by life area.
             </p>
           </div>
           <GoalFormDialog
@@ -85,65 +45,14 @@ export default async function GoalsPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric
-          label="Active"
-          value={String(activeCount)}
-          detail="Goals currently moving through the system."
-          icon={Target}
-        />
-        <Metric
-          label="Missing next"
-          value={String(missingNextActionCount)}
-          detail="Active goals that need the next move clarified."
-          icon={AlertTriangle}
-          tone={missingNextActionCount ? "warning" : "success"}
-        />
-        <Metric
-          label="Blocked"
-          value={String(blockedCount)}
-          detail="Active goals carrying an explicit blocker."
-          icon={AlertTriangle}
-          tone={blockedCount ? "warning" : "success"}
-        />
-        <Metric
-          label="Completed"
-          value={String(completedCount)}
-          detail="Goals already landed or archived as wins."
-          icon={CircleCheckBig}
-          tone="success"
-        />
-      </section>
-
-      <section className="space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-200/70">
-              Pillar overview
-            </p>
-            <h3 className="mt-2 font-heading text-2xl font-semibold text-white">
-              The life lanes at a glance
-            </h3>
-          </div>
-          <p className="max-w-xl text-sm leading-6 text-slate-400">
-            Pillar cards summarize active goals, progress, blockers, and next-action gaps.
-          </p>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-          {pillars.map((pillar) => (
-            <PillarCard key={pillar.id} pillar={pillar} />
-          ))}
-        </div>
-      </section>
-
       <section className="space-y-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-200/70">
-              Grouped goals
+              Goals
             </p>
             <h3 className="mt-2 font-heading text-2xl font-semibold text-white">
-              Work grouped by pillar
+              Grouped by life area
             </h3>
           </div>
           <div className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.035] px-4 py-3 text-sm text-slate-300">

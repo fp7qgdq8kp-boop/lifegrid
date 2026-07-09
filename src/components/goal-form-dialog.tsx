@@ -60,6 +60,14 @@ export function GoalFormDialog({
   const [goalType, setGoalType] = useState(goal?.goalType ?? "CHECKLIST");
   const action = goal ? updateGoalAction : createGoalAction;
   const [state, formAction, pending] = useActionState(action, initialFormState);
+  const showAdvancedByDefault = Boolean(
+    goal &&
+      (goal.goalType !== "CHECKLIST" ||
+        goal.status !== "ACTIVE" ||
+        goal.deadline ||
+        goal.blocker ||
+        goal.isShared === false)
+  );
 
   useEffect(() => {
     if (state.status === "success") {
@@ -83,130 +91,14 @@ export function GoalFormDialog({
         </DialogHeader>
         <form action={formAction} className="space-y-5">
           {goal ? <input type="hidden" name="goalId" value={goal.id} /> : null}
-          <div className="grid gap-5 md:grid-cols-2">
-            <div className="md:col-span-2">
+          <div className="space-y-5">
+            <div>
               <Label htmlFor="title">Title</Label>
               <Input id="title" name="title" defaultValue={goal?.title ?? ""} />
               <FieldError message={state.fieldErrors?.title?.[0]} />
             </div>
 
-            <div className="md:col-span-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                name="description"
-                defaultValue={goal?.description ?? ""}
-                className="min-h-[96px]"
-              />
-            </div>
-
             <div>
-              <Label htmlFor="pillarId">Pillar</Label>
-              <select
-                id="pillarId"
-                name="pillarId"
-                defaultValue={goal?.pillarId ?? pillars[0]?.id ?? ""}
-                className="h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus:border-cyan-400/40 focus:ring-2 focus:ring-cyan-400/20"
-              >
-                {pillars.map((pillar) => (
-                  <option key={pillar.id} value={pillar.id} className="bg-slate-950">
-                    {pillar.name}
-                  </option>
-                ))}
-              </select>
-              <FieldError message={state.fieldErrors?.pillarId?.[0]} />
-            </div>
-
-            <div>
-              <Label htmlFor="goalType">Goal type</Label>
-              <select
-                id="goalType"
-                name="goalType"
-                value={goalType}
-                onChange={(event) => setGoalType(event.target.value)}
-                className="h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus:border-cyan-400/40 focus:ring-2 focus:ring-cyan-400/20"
-              >
-                {goalTypeOptions.map((option) => (
-                  <option key={option.value} value={option.value} className="bg-slate-950">
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <FieldError message={state.fieldErrors?.goalType?.[0]} />
-            </div>
-
-            {showNumericFields ? (
-              <>
-                <div>
-                  <Label htmlFor="targetValue">Target value</Label>
-                  <Input
-                    id="targetValue"
-                    name="targetValue"
-                    type="number"
-                    step="0.01"
-                    defaultValue={goal?.targetValue ?? ""}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="currentValue">Current value</Label>
-                  <Input
-                    id="currentValue"
-                    name="currentValue"
-                    type="number"
-                    step="0.01"
-                    defaultValue={goal?.currentValue ?? ""}
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <Label htmlFor="unit">Unit</Label>
-                  <Input
-                    id="unit"
-                    name="unit"
-                    placeholder="dollars, sessions, percent, monthly recurring revenue..."
-                    defaultValue={goal?.unit ?? ""}
-                  />
-                </div>
-              </>
-            ) : (
-              <>
-                <input type="hidden" name="targetValue" value={goal?.targetValue ?? ""} />
-                <input type="hidden" name="currentValue" value={goal?.currentValue ?? ""} />
-                <input type="hidden" name="unit" value={goal?.unit ?? ""} />
-                <div className="md:col-span-2 rounded-2xl border border-cyan-400/15 bg-cyan-400/10 p-4 text-sm text-cyan-100">
-                  {goalType === "CHECKLIST"
-                    ? "Checklist progress is driven by milestone completion."
-                    : "Recurring goals stay focused on rhythm and next action instead of a numeric target."}
-                </div>
-              </>
-            )}
-
-            <div>
-              <Label htmlFor="status">Status</Label>
-              <select
-                id="status"
-                name="status"
-                defaultValue={goal?.status ?? "ACTIVE"}
-                className="h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus:border-cyan-400/40 focus:ring-2 focus:ring-cyan-400/20"
-              >
-                {goalStatusOptions.map((option) => (
-                  <option key={option.value} value={option.value} className="bg-slate-950">
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <Label htmlFor="deadline">Deadline</Label>
-              <Input
-                id="deadline"
-                name="deadline"
-                type="date"
-                defaultValue={toDateInputValue(goal?.deadline)}
-              />
-            </div>
-
-            <div className="md:col-span-2">
               <Label htmlFor="nextAction">Next action</Label>
               <Textarea
                 id="nextAction"
@@ -220,32 +112,160 @@ export function GoalFormDialog({
               <FieldError message={state.fieldErrors?.nextAction?.[0]} />
             </div>
 
-            <div className="md:col-span-2">
-              <Label htmlFor="blocker">Blocker</Label>
+            <div className="grid gap-5 md:grid-cols-2">
+              <div>
+                <Label htmlFor="pillarId">Pillar</Label>
+                <select
+                  id="pillarId"
+                  name="pillarId"
+                  defaultValue={goal?.pillarId ?? pillars[0]?.id ?? ""}
+                  className="h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus:border-cyan-400/40 focus:ring-2 focus:ring-cyan-400/20"
+                >
+                  {pillars.map((pillar) => (
+                    <option key={pillar.id} value={pillar.id} className="bg-slate-950">
+                      {pillar.name}
+                    </option>
+                  ))}
+                </select>
+                <FieldError message={state.fieldErrors?.pillarId?.[0]} />
+              </div>
+
+              <div>
+                <Label htmlFor="status">Status</Label>
+                <select
+                  id="status"
+                  name="status"
+                  defaultValue={goal?.status ?? "ACTIVE"}
+                  className="h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus:border-cyan-400/40 focus:ring-2 focus:ring-cyan-400/20"
+                >
+                  {goalStatusOptions.map((option) => (
+                    <option key={option.value} value={option.value} className="bg-slate-950">
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="description">Why it matters</Label>
               <Textarea
-                id="blocker"
-                name="blocker"
-                defaultValue={goal?.blocker ?? ""}
+                id="description"
+                name="description"
+                defaultValue={goal?.description ?? ""}
                 className="min-h-[88px]"
               />
             </div>
 
-            <div className="md:col-span-2">
-              <Label htmlFor="isShared">Visibility</Label>
-              <select
-                id="isShared"
-                name="isShared"
-                defaultValue={goal?.isShared === false ? "false" : "true"}
-                className="h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus:border-cyan-400/40 focus:ring-2 focus:ring-cyan-400/20"
-              >
-                <option value="true" className="bg-slate-950">
-                  Shared with household
-                </option>
-                <option value="false" className="bg-slate-950">
-                  Personal
-                </option>
-              </select>
-            </div>
+            <details
+              className="rounded-2xl border border-white/8 bg-white/[0.03] p-4"
+              open={showAdvancedByDefault}
+            >
+              <summary className="cursor-pointer text-sm font-semibold text-white">
+                More options
+              </summary>
+              <div className="mt-5 grid gap-5 md:grid-cols-2">
+                <div>
+                  <Label htmlFor="goalType">Goal type</Label>
+                  <select
+                    id="goalType"
+                    name="goalType"
+                    value={goalType}
+                    onChange={(event) => setGoalType(event.target.value)}
+                    className="h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus:border-cyan-400/40 focus:ring-2 focus:ring-cyan-400/20"
+                  >
+                    {goalTypeOptions.map((option) => (
+                      <option key={option.value} value={option.value} className="bg-slate-950">
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <FieldError message={state.fieldErrors?.goalType?.[0]} />
+                </div>
+
+                <div>
+                  <Label htmlFor="deadline">Deadline</Label>
+                  <Input
+                    id="deadline"
+                    name="deadline"
+                    type="date"
+                    defaultValue={toDateInputValue(goal?.deadline)}
+                  />
+                </div>
+
+                {showNumericFields ? (
+                  <>
+                    <div>
+                      <Label htmlFor="targetValue">Target value</Label>
+                      <Input
+                        id="targetValue"
+                        name="targetValue"
+                        type="number"
+                        step="0.01"
+                        defaultValue={goal?.targetValue ?? ""}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="currentValue">Current value</Label>
+                      <Input
+                        id="currentValue"
+                        name="currentValue"
+                        type="number"
+                        step="0.01"
+                        defaultValue={goal?.currentValue ?? ""}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label htmlFor="unit">Unit</Label>
+                      <Input
+                        id="unit"
+                        name="unit"
+                        placeholder="dollars, sessions, percent..."
+                        defaultValue={goal?.unit ?? ""}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <input type="hidden" name="targetValue" value={goal?.targetValue ?? ""} />
+                    <input type="hidden" name="currentValue" value={goal?.currentValue ?? ""} />
+                    <input type="hidden" name="unit" value={goal?.unit ?? ""} />
+                    <div className="rounded-2xl border border-cyan-400/15 bg-cyan-400/10 p-4 text-sm text-cyan-100 md:col-span-2">
+                      {goalType === "CHECKLIST"
+                        ? "Checklist progress comes from milestones."
+                        : "Recurring goals stay focused on rhythm and next action."}
+                    </div>
+                  </>
+                )}
+
+                <div className="md:col-span-2">
+                  <Label htmlFor="blocker">Blocker</Label>
+                  <Textarea
+                    id="blocker"
+                    name="blocker"
+                    defaultValue={goal?.blocker ?? ""}
+                    className="min-h-[88px]"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <Label htmlFor="isShared">Visibility</Label>
+                  <select
+                    id="isShared"
+                    name="isShared"
+                    defaultValue={goal?.isShared === false ? "false" : "true"}
+                    className="h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus:border-cyan-400/40 focus:ring-2 focus:ring-cyan-400/20"
+                  >
+                    <option value="true" className="bg-slate-950">
+                      Shared with household
+                    </option>
+                    <option value="false" className="bg-slate-950">
+                      Personal
+                    </option>
+                  </select>
+                </div>
+              </div>
+            </details>
           </div>
 
           {state.message ? (

@@ -784,6 +784,123 @@ export async function updateGoalAction(_: FormState, formData: FormData): Promis
   };
 }
 
+export async function completeGoalAction(formData: FormData) {
+  const goalId = formData.get("goalId");
+
+  if (typeof goalId !== "string" || !goalId) {
+    return;
+  }
+
+  const { household, user } = await getViewerContext();
+  const goal = await prisma.goal.findFirst({
+    where: {
+      id: goalId,
+      householdId: household.id
+    },
+    include: {
+      pillar: true,
+      milestones: {
+        select: {
+          id: true,
+          status: true,
+          completedAt: true
+        }
+      }
+    }
+  });
+
+  if (!goal || goal.status === GoalStatus.COMPLETED) {
+    return;
+  }
+
+  const completedAt = new Date();
+  const incompleteMilestoneIds = goal.milestones
+    .filter((milestone) => milestone.status !== MilestoneStatus.COMPLETED)
+    .map((milestone) => milestone.id);
+  const nextCurrentValue =
+    goal.goalType !== GoalType.CHECKLIST && goal.targetValue !== null
+      ? goal.targetValue
+      : goal.currentValue;
+
+  await prisma.$transaction(async (tx) => {
+    if (incompleteMilestoneIds.length) {
+      await tx.milestone.updateMany({
+        where: {
+          id: {
+            in: incompleteMilestoneIds
+          }
+        },
+        data: {
+          status: MilestoneStatus.COMPLETED,
+          completedAt
+        }
+      });
+    }
+
+    await tx.goal.update({
+      where: { id: goal.id },
+      data: {
+        status: GoalStatus.COMPLETED,
+        completedAt,
+        currentValue: nextCurrentValue,
+        nextAction: null,
+        blocker: null
+      }
+    });
+
+    await createActivityEventWithNotifications({
+      tx,
+      activity: {
+        householdId: household.id,
+        userId: user.id,
+        goalId: goal.id,
+        eventType: "goal.completed",
+        entityType: "goal",
+        entityId: goal.id,
+        action: "completed",
+        oldValue: {
+          status: goal.status,
+          completedAt: jsonDate(goal.completedAt),
+          currentValue: goal.currentValue,
+          nextAction: goal.nextAction,
+          blocker: goal.blocker,
+          incompleteMilestones: incompleteMilestoneIds.length
+        },
+        newValue: {
+          status: GoalStatus.COMPLETED,
+          completedAt: jsonDate(completedAt),
+          currentValue: nextCurrentValue,
+          nextAction: null,
+          blocker: null,
+          completedMilestones: goal.milestones.length
+        },
+        metadata: {
+          goalTitle: goal.title,
+          pillarName: goal.pillar.name,
+          completedMilestoneCount: goal.milestones.length
+        },
+        message: `${goal.title} was marked complete.`
+      },
+      notification: {
+        type: "plan_status_changed",
+        title: "Goal completed",
+        message: `${user.name} marked ${goal.title} complete.`,
+        goalId: goal.id,
+        pillarId: goal.pillarId,
+        includeActor: true,
+        recipientUserIds: goal.isShared ? undefined : [user.id],
+        metadata: {
+          goalTitle: goal.title,
+          pillarName: goal.pillar.name,
+          completedMilestoneCount: goal.milestones.length
+        }
+      }
+    });
+  });
+
+  revalidateLifeGrid(goal.id);
+}
+
 export async function createDecisionLogAction(
   _: FormState,
   formData: FormData
