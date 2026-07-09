@@ -124,6 +124,34 @@ const weeklyReviewSchema = z.object({
   notes: z.string().optional()
 });
 
+const commentSchema = z.object({
+  goalId: z.string().min(1),
+  target: z.string().optional(),
+  parentCommentId: z.string().optional(),
+  body: z
+    .string()
+    .trim()
+    .min(2, "Add a comment before posting.")
+    .max(2000, "Keep comments under 2,000 characters.")
+});
+
+const reviewRequestSchema = z.object({
+  goalId: z.string().min(1),
+  target: z.string().optional(),
+  assignedToUserId: z.string().optional(),
+  title: z
+    .string()
+    .trim()
+    .min(2, "Add a short review title.")
+    .max(140, "Keep the review title under 140 characters."),
+  message: z.string().optional(),
+  dueDate: z.string().optional()
+});
+
+const resolveReviewRequestSchema = z.object({
+  reviewRequestId: z.string().min(1)
+});
+
 function getFieldErrors(error: z.ZodError): Record<string, string[] | undefined> {
   return error.flatten().fieldErrors;
 }
@@ -262,6 +290,105 @@ function crossedProgressThreshold(previousProgress: number, nextProgress: number
   return [25, 50, 75, 100].find(
     (threshold) => previousProgress < threshold && nextProgress >= threshold
   );
+}
+
+function parseCollaborationTarget(value: string | undefined) {
+  if (!value || value === "goal") {
+    return {
+      decisionLogId: null,
+      milestoneId: null
+    };
+  }
+
+  const [targetType, targetId] = value.split(":");
+
+  if (!targetId || (targetType !== "decision" && targetType !== "milestone")) {
+    return {
+      decisionLogId: null,
+      milestoneId: null
+    };
+  }
+
+  return {
+    decisionLogId: targetType === "decision" ? targetId : null,
+    milestoneId: targetType === "milestone" ? targetId : null
+  };
+}
+
+async function getCollaborationTarget({
+  householdId,
+  goalId,
+  target
+}: {
+  householdId: string;
+  goalId: string;
+  target: string | undefined;
+}) {
+  const parsedTarget = parseCollaborationTarget(target);
+  const goal = await prisma.goal.findFirst({
+    where: {
+      id: goalId,
+      householdId
+    }
+  });
+
+  if (!goal) {
+    return null;
+  }
+
+  if (parsedTarget.decisionLogId) {
+    const decisionLog = await prisma.decisionLog.findFirst({
+      where: {
+        id: parsedTarget.decisionLogId,
+        goalId: goal.id,
+        householdId
+      }
+    });
+
+    if (!decisionLog) {
+      return null;
+    }
+
+    return {
+      goal,
+      decisionLog,
+      milestone: null,
+      decisionLogId: decisionLog.id,
+      milestoneId: null,
+      label: `the ${decisionLog.title} decision`
+    };
+  }
+
+  if (parsedTarget.milestoneId) {
+    const milestone = await prisma.milestone.findFirst({
+      where: {
+        id: parsedTarget.milestoneId,
+        goalId: goal.id
+      }
+    });
+
+    if (!milestone) {
+      return null;
+    }
+
+    return {
+      goal,
+      decisionLog: null,
+      milestone,
+      decisionLogId: null,
+      milestoneId: milestone.id,
+      label: `the ${milestone.title} milestone`
+    };
+  }
+
+  return {
+    goal,
+    decisionLog: null,
+    milestone: null,
+    decisionLogId: null,
+    milestoneId: null,
+    label: goal.title
+  };
 }
 
 type CompletableMilestone = {
@@ -1351,6 +1478,297 @@ export async function createWeeklyReviewAction(
     status: "success",
     message: "Weekly review saved."
   };
+}
+
+export async function createCommentAction(
+  _: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const parsed = commentSchema.safeParse(Object.fromEntries(formData.entries()));
+
+  if (!parsed.success) {
+    return {
+      status: "error",
+      message: "Review the comment fields.",
+      fieldErrors: getFieldErrors(parsed.error)
+    };
+  }
+
+  const { household, user } = await getViewerContext();
+  const payload = parsed.data;
+  const target = await getCollaborationTarget({
+    householdId: household.id,
+    goalId: payload.goalId,
+    target: payload.target
+  });
+
+  if (!target) {
+    return {
+      status: "error",
+      message: "That comment target could not be found."
+    };
+  }
+
+  const parentCommentId = emptyToNull(payload.parentCommentId);
+
+  if (parentCommentId) {
+    const parentComment = await prisma.comment.findFirst({
+      where: {
+        id: parentCommentId,
+        goalId: target.goal.id,
+        householdId: household.id
+      }
+    });
+
+    if (!parentComment) {
+      return {
+        status: "error",
+        message: "That comment thread could not be found."
+      };
+    }
+  }
+
+  const comment = await prisma.$transaction(async (tx) => {
+    const created = await tx.comment.create({
+      data: {
+        householdId: household.id,
+        goalId: target.goal.id,
+        userId: user.id,
+        decisionLogId: target.decisionLogId,
+        milestoneId: target.milestoneId,
+        parentCommentId,
+        body: payload.body
+      }
+    });
+
+    await createActivityEventWithNotifications({
+      tx,
+      activity: {
+        householdId: household.id,
+        userId: user.id,
+        eventType: "comment.created",
+        entityType: "comment",
+        entityId: created.id,
+        message: `${user.name} commented on ${target.label}.`
+      },
+      notification: target.goal.isShared
+        ? {
+            type: "comment_added",
+            title: "New comment",
+            message: `${user.name} commented on ${target.label}.`,
+            goalId: target.goal.id,
+            decisionLogId: target.decisionLogId,
+            milestoneId: target.milestoneId,
+            commentId: created.id,
+            metadata: {
+              goalTitle: target.goal.title,
+              targetLabel: target.label,
+              preview: payload.body.slice(0, 160)
+            }
+          }
+        : undefined
+    });
+
+    return created;
+  });
+
+  revalidateLifeGrid(target.goal.id);
+
+  return {
+    status: "success",
+    message: `Comment added to ${target.label}.`
+  };
+}
+
+export async function submitCommentAction(formData: FormData) {
+  await createCommentAction({ status: "idle" }, formData);
+}
+
+export async function createReviewRequestAction(
+  _: FormState,
+  formData: FormData
+): Promise<FormState> {
+  const parsed = reviewRequestSchema.safeParse(Object.fromEntries(formData.entries()));
+
+  if (!parsed.success) {
+    return {
+      status: "error",
+      message: "Review the request fields.",
+      fieldErrors: getFieldErrors(parsed.error)
+    };
+  }
+
+  const { household, user } = await getViewerContext();
+  const payload = parsed.data;
+  const target = await getCollaborationTarget({
+    householdId: household.id,
+    goalId: payload.goalId,
+    target: payload.target
+  });
+
+  if (!target) {
+    return {
+      status: "error",
+      message: "That review target could not be found."
+    };
+  }
+
+  const assignedToUserId = emptyToNull(payload.assignedToUserId);
+
+  if (assignedToUserId) {
+    const assignedMember = await prisma.householdMember.findFirst({
+      where: {
+        householdId: household.id,
+        userId: assignedToUserId
+      }
+    });
+
+    if (!assignedMember) {
+      return {
+        status: "error",
+        message: "That reviewer is not in this household."
+      };
+    }
+  }
+
+  const recipientUserIds = target.goal.isShared
+    ? assignedToUserId
+      ? [assignedToUserId]
+      : undefined
+    : [user.id];
+
+  const reviewRequest = await prisma.$transaction(async (tx) => {
+    const created = await tx.reviewRequest.create({
+      data: {
+        householdId: household.id,
+        goalId: target.goal.id,
+        requestedByUserId: user.id,
+        assignedToUserId,
+        decisionLogId: target.decisionLogId,
+        milestoneId: target.milestoneId,
+        title: payload.title,
+        message: emptyToNull(payload.message),
+        dueDate: toOptionalDate(payload.dueDate)
+      }
+    });
+
+    await createActivityEventWithNotifications({
+      tx,
+      activity: {
+        householdId: household.id,
+        userId: user.id,
+        eventType: "review-request.created",
+        entityType: "review-request",
+        entityId: created.id,
+        message: `${user.name} requested review on ${target.label}.`
+      },
+      notification: {
+        type: "review_requested",
+        title: "Review requested",
+        message: `${user.name} requested review on ${target.label}.`,
+        goalId: target.goal.id,
+        decisionLogId: target.decisionLogId,
+        milestoneId: target.milestoneId,
+        reviewRequestId: created.id,
+        recipientUserIds,
+        includeActor: !target.goal.isShared || assignedToUserId === user.id,
+        metadata: {
+          goalTitle: target.goal.title,
+          targetLabel: target.label,
+          title: payload.title,
+          dueDate: created.dueDate?.toISOString() ?? null
+        }
+      }
+    });
+
+    return created;
+  });
+
+  revalidateLifeGrid(target.goal.id);
+
+  return {
+    status: "success",
+    message: `Review requested: ${reviewRequest.title}.`
+  };
+}
+
+export async function submitReviewRequestAction(formData: FormData) {
+  await createReviewRequestAction({ status: "idle" }, formData);
+}
+
+export async function resolveReviewRequestAction(formData: FormData) {
+  const parsed = resolveReviewRequestSchema.safeParse(Object.fromEntries(formData.entries()));
+
+  if (!parsed.success) {
+    return;
+  }
+
+  const { household, user } = await getViewerContext();
+  const reviewRequest = await prisma.reviewRequest.findFirst({
+    where: {
+      id: parsed.data.reviewRequestId,
+      householdId: household.id
+    },
+    include: {
+      goal: true,
+      decisionLog: true,
+      milestone: true
+    }
+  });
+
+  if (!reviewRequest || reviewRequest.status === "resolved") {
+    return;
+  }
+
+  const targetLabel = reviewRequest.decisionLog
+    ? `the ${reviewRequest.decisionLog.title} decision`
+    : reviewRequest.milestone
+      ? `the ${reviewRequest.milestone.title} milestone`
+      : reviewRequest.goal.title;
+  const recipientUserIds = reviewRequest.goal.isShared
+    ? [reviewRequest.requestedByUserId, reviewRequest.assignedToUserId].filter(
+        (id): id is string => Boolean(id)
+      )
+    : [reviewRequest.requestedByUserId];
+
+  await prisma.$transaction(async (tx) => {
+    await tx.reviewRequest.update({
+      where: { id: reviewRequest.id },
+      data: {
+        status: "resolved",
+        resolvedAt: new Date()
+      }
+    });
+
+    await createActivityEventWithNotifications({
+      tx,
+      activity: {
+        householdId: household.id,
+        userId: user.id,
+        eventType: "review-request.resolved",
+        entityType: "review-request",
+        entityId: reviewRequest.id,
+        message: `${user.name} resolved review request: ${reviewRequest.title}.`
+      },
+      notification: {
+        type: "review_request_resolved",
+        title: "Review resolved",
+        message: `${user.name} resolved review on ${targetLabel}.`,
+        goalId: reviewRequest.goalId,
+        decisionLogId: reviewRequest.decisionLogId,
+        milestoneId: reviewRequest.milestoneId,
+        reviewRequestId: reviewRequest.id,
+        recipientUserIds,
+        metadata: {
+          goalTitle: reviewRequest.goal.title,
+          targetLabel,
+          title: reviewRequest.title
+        }
+      }
+    });
+  });
+
+  revalidateLifeGrid(reviewRequest.goal.id);
 }
 
 export async function markNotificationReadAction(formData: FormData) {

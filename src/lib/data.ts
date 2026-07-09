@@ -161,7 +161,7 @@ export async function getGoalsPageData() {
 export async function getGoalDetailData(goalId: string) {
   const { household } = await getViewerContext();
 
-  const [goal, pillars] = await Promise.all([
+  const [goal, pillars, householdMembers] = await Promise.all([
     prisma.goal.findFirst({
       where: {
         id: goalId,
@@ -169,12 +169,45 @@ export async function getGoalDetailData(goalId: string) {
       },
       include: {
         ...goalCardArgs.include,
-        household: true
+        household: true,
+        comments: {
+          orderBy: {
+            createdAt: "desc"
+          },
+          include: {
+            user: true,
+            decisionLog: true,
+            milestone: true
+          }
+        },
+        reviewRequests: {
+          orderBy: [
+            {
+              status: "asc"
+            },
+            {
+              createdAt: "desc"
+            }
+          ],
+          include: {
+            requestedByUser: true,
+            assignedToUser: true,
+            decisionLog: true,
+            milestone: true
+          }
+        }
       }
     }),
     prisma.pillar.findMany({
       where: { householdId: household.id },
       orderBy: { sortOrder: "asc" }
+    }),
+    prisma.householdMember.findMany({
+      where: { householdId: household.id },
+      orderBy: { createdAt: "asc" },
+      include: {
+        user: true
+      }
     })
   ]);
 
@@ -184,6 +217,8 @@ export async function getGoalDetailData(goalId: string) {
 
   const milestoneIds = goal.milestones.map((milestone) => milestone.id);
   const decisionLogIds = goal.decisionLogs.map((decisionLog) => decisionLog.id);
+  const commentIds = goal.comments.map((comment) => comment.id);
+  const reviewRequestIds = goal.reviewRequests.map((reviewRequest) => reviewRequest.id);
   const activity = await prisma.activityEvent.findMany({
     where: {
       householdId: household.id,
@@ -213,6 +248,28 @@ export async function getGoalDetailData(goalId: string) {
           : {
               entityType: "goal",
               entityId: goal.id
+            },
+        commentIds.length
+          ? {
+              entityType: "comment",
+              entityId: {
+                in: commentIds
+              }
+            }
+          : {
+              entityType: "goal",
+              entityId: goal.id
+            },
+        reviewRequestIds.length
+          ? {
+              entityType: "review-request",
+              entityId: {
+                in: reviewRequestIds
+              }
+            }
+          : {
+              entityType: "goal",
+              entityId: goal.id
             }
       ]
     },
@@ -225,6 +282,7 @@ export async function getGoalDetailData(goalId: string) {
     goal,
     activity,
     pillars,
+    householdMembers,
     progress: calculateGoalProgress(goal),
     recommendedNextMove: getTopNextStepForGoal(goal)
   };

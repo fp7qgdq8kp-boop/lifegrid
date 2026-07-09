@@ -8,8 +8,11 @@ export const notificationTypes = [
   "decision_updated",
   "milestone_completed",
   "plan_status_changed",
+  "comment_added",
   "progress_log_added",
   "progress_threshold_reached",
+  "review_requested",
+  "review_request_resolved",
   "review_reminder_due",
   "system"
 ] as const;
@@ -37,6 +40,7 @@ type NotificationInput = {
   milestoneId?: string | null;
   progressLogId?: string | null;
   commentId?: string | null;
+  reviewRequestId?: string | null;
   metadata?: Prisma.InputJsonValue;
   targetHref?: string | null;
   includeActor?: boolean;
@@ -50,6 +54,14 @@ function uniqueValues(values: string[]) {
 function getNotificationTargetHref(notification: NotificationInput) {
   if (notification.targetHref) {
     return notification.targetHref;
+  }
+
+  if (notification.goalId && notification.reviewRequestId) {
+    return `/goals/${notification.goalId}#review-${notification.reviewRequestId}`;
+  }
+
+  if (notification.goalId && notification.commentId) {
+    return `/goals/${notification.goalId}#comment-${notification.commentId}`;
   }
 
   if (notification.goalId && notification.decisionLogId) {
@@ -139,6 +151,7 @@ export async function createActivityEventWithNotifications({
       milestoneId: notification.milestoneId ?? null,
       progressLogId: notification.progressLogId ?? null,
       commentId: notification.commentId ?? null,
+      reviewRequestId: notification.reviewRequestId ?? null,
       type: notification.type,
       title: notification.title,
       message: notification.message,

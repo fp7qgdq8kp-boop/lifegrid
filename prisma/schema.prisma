@@ -49,6 +49,9 @@ model User {
   weeklyReviewsCreated   WeeklyReview[]
   activityEventsAuthored ActivityEvent[]
   decisionLogs           DecisionLog[]
+  commentsAuthored       Comment[]
+  reviewRequestsCreated  ReviewRequest[]   @relation("ReviewRequestCreator")
+  reviewRequestsAssigned ReviewRequest[]   @relation("ReviewRequestAssignee")
   notificationsReceived  Notification[]    @relation("NotificationRecipient")
   notificationsActed     Notification[]    @relation("NotificationActor")
 }
@@ -66,6 +69,8 @@ model Household {
   weeklyReviews   WeeklyReview[]
   activityEvents  ActivityEvent[]
   decisionLogs    DecisionLog[]
+  comments        Comment[]
+  reviewRequests  ReviewRequest[]
   notifications   Notification[]
 }
 
@@ -98,53 +103,57 @@ model Pillar {
 }
 
 model Goal {
-  id            String         @id @default(cuid())
-  householdId   String
-  pillarId      String
-  ownerUserId   String
-  title         String
-  description   String?
-  goalType      GoalType
-  targetValue   Float?
-  currentValue  Float?
-  unit          String?
-  status        GoalStatus     @default(ACTIVE)
-  deadline      DateTime?
-  nextAction    String?
-  blocker       String?
-  isShared      Boolean        @default(true)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  completedAt   DateTime?
-  household     Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  pillar        Pillar         @relation(fields: [pillarId], references: [id], onDelete: Cascade)
-  ownerUser     User           @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
-  milestones    Milestone[]
-  progressLogs  ProgressLog[]
-  decisionLogs  DecisionLog[]
-  notifications Notification[]
+  id             String          @id @default(cuid())
+  householdId    String
+  pillarId       String
+  ownerUserId    String
+  title          String
+  description    String?
+  goalType       GoalType
+  targetValue    Float?
+  currentValue   Float?
+  unit           String?
+  status         GoalStatus      @default(ACTIVE)
+  deadline       DateTime?
+  nextAction     String?
+  blocker        String?
+  isShared       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  completedAt    DateTime?
+  household      Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  pillar         Pillar          @relation(fields: [pillarId], references: [id], onDelete: Cascade)
+  ownerUser      User            @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  milestones     Milestone[]
+  progressLogs   ProgressLog[]
+  decisionLogs   DecisionLog[]
+  comments       Comment[]
+  reviewRequests ReviewRequest[]
+  notifications  Notification[]
 
   @@index([householdId, status])
   @@index([pillarId])
 }
 
 model DecisionLog {
-  id            String         @id @default(cuid())
-  householdId   String
-  goalId        String
-  userId        String
-  title         String
-  decision      String
-  reason        String
-  category      String
-  status        String         @default("active")
-  reviewDate    DateTime?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  household     Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  goal          Goal           @relation(fields: [goalId], references: [id], onDelete: Cascade)
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  notifications Notification[]
+  id             String          @id @default(cuid())
+  householdId    String
+  goalId         String
+  userId         String
+  title          String
+  decision       String
+  reason         String
+  category       String
+  status         String          @default("active")
+  reviewDate     DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  household      Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  goal           Goal            @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comments       Comment[]
+  reviewRequests ReviewRequest[]
+  notifications  Notification[]
 
   @@index([householdId, goalId])
   @@index([goalId, status])
@@ -167,6 +176,8 @@ model Milestone {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   goal            Goal            @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  comments        Comment[]
+  reviewRequests  ReviewRequest[]
   notifications   Notification[]
 
   @@index([goalId, sortOrder])
@@ -223,6 +234,61 @@ model ActivityEvent {
   @@index([entityType, entityId])
 }
 
+model Comment {
+  id              String         @id @default(cuid())
+  householdId     String
+  goalId          String
+  userId          String
+  decisionLogId   String?
+  milestoneId     String?
+  parentCommentId String?
+  body            String
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  household       Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  goal            Goal           @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  decisionLog     DecisionLog?   @relation(fields: [decisionLogId], references: [id], onDelete: Cascade)
+  milestone       Milestone?     @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  parentComment   Comment?       @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies         Comment[]      @relation("CommentReplies")
+  notifications   Notification[]
+
+  @@index([householdId, goalId, createdAt])
+  @@index([decisionLogId])
+  @@index([milestoneId])
+  @@index([parentCommentId])
+}
+
+model ReviewRequest {
+  id                String         @id @default(cuid())
+  householdId       String
+  goalId            String
+  requestedByUserId String
+  assignedToUserId  String?
+  decisionLogId     String?
+  milestoneId       String?
+  title             String
+  message           String?
+  status            String         @default("open")
+  dueDate           DateTime?
+  resolvedAt        DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  household         Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  goal              Goal           @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  requestedByUser   User           @relation("ReviewRequestCreator", fields: [requestedByUserId], references: [id], onDelete: Cascade)
+  assignedToUser    User?          @relation("ReviewRequestAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  decisionLog       DecisionLog?   @relation(fields: [decisionLogId], references: [id], onDelete: Cascade)
+  milestone         Milestone?     @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  notifications     Notification[]
+
+  @@index([householdId, goalId, status, createdAt])
+  @@index([assignedToUserId, status])
+  @@index([decisionLogId])
+  @@index([milestoneId])
+}
+
 model Notification {
   id               String         @id @default(cuid())
   householdId      String
@@ -235,6 +301,7 @@ model Notification {
   milestoneId      String?
   progressLogId    String?
   commentId        String?
+  reviewRequestId  String?
   type             String
   title            String
   message          String
@@ -254,6 +321,8 @@ model Notification {
   decisionLog      DecisionLog?   @relation(fields: [decisionLogId], references: [id], onDelete: SetNull)
   milestone        Milestone?     @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
   progressLog      ProgressLog?   @relation(fields: [progressLogId], references: [id], onDelete: SetNull)
+  comment          Comment?       @relation(fields: [commentId], references: [id], onDelete: SetNull)
+  reviewRequest    ReviewRequest? @relation(fields: [reviewRequestId], references: [id], onDelete: SetNull)
 
   @@unique([userId, activityEventId])
   @@index([householdId, userId, readAt, createdAt])
@@ -261,4 +330,6 @@ model Notification {
   @@index([goalId])
   @@index([decisionLogId])
   @@index([milestoneId])
+  @@index([commentId])
+  @@index([reviewRequestId])
 }

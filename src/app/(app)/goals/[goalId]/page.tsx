@@ -7,14 +7,22 @@ import {
   CheckCircle2,
   ChevronLeft,
   Clock3,
+  Eye,
   FileText,
   Flag,
   ListChecks,
+  MessageSquare,
+  Send,
   Target,
   UserCircle2
 } from "lucide-react";
 
-import { archiveDecisionLogAction } from "@/actions/lifegrid";
+import {
+  archiveDecisionLogAction,
+  resolveReviewRequestAction,
+  submitCommentAction,
+  submitReviewRequestAction
+} from "@/actions/lifegrid";
 import { ActivityFeed } from "@/components/activity-feed";
 import { CompleteMilestoneButton } from "@/components/complete-milestone-button";
 import { DecisionLogFormDialog } from "@/components/decision-log-form-dialog";
@@ -28,6 +36,8 @@ import { ProgressUpdateDialog } from "@/components/progress-update-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { getGoalDetailData } from "@/lib/data";
 import { formatDate, formatGoalValue, formatRelativeDate } from "@/lib/format";
 import {
@@ -93,7 +103,7 @@ export default async function GoalDetailPage({
     notFound();
   }
 
-  const { goal, progress, pillars, activity, recommendedNextMove } = data;
+  const { goal, progress, pillars, activity, recommendedNextMove, householdMembers } = data;
   const missingNextAction = !goal.nextAction?.trim();
   const hasBlocker = Boolean(goal.blocker?.trim());
   const completedMilestones = goal.milestones.filter(
@@ -104,6 +114,26 @@ export default async function GoalDetailPage({
       Number(a.status === "archived") - Number(b.status === "archived") ||
       b.updatedAt.getTime() - a.updatedAt.getTime()
   );
+  const reviewRequests = goal.reviewRequests;
+  const openReviewRequests = reviewRequests.filter(
+    (reviewRequest) => reviewRequest.status !== "resolved"
+  );
+  const resolvedReviewRequests = reviewRequests.filter(
+    (reviewRequest) => reviewRequest.status === "resolved"
+  );
+  const targetOptions = [
+    { value: "goal", label: "Whole plan" },
+    ...decisionLogs
+      .filter((decisionLog) => decisionLog.status !== "archived")
+      .map((decisionLog) => ({
+        value: `decision:${decisionLog.id}`,
+        label: `Decision: ${decisionLog.title}`
+      })),
+    ...goal.milestones.map((milestone) => ({
+      value: `milestone:${milestone.id}`,
+      label: `Milestone: ${milestone.title}`
+    }))
+  ];
 
   return (
     <div className="space-y-6 pb-10">
@@ -280,6 +310,227 @@ export default async function GoalDetailPage({
                 <p className="mt-3 text-sm leading-6 text-slate-300/80">
                   {goal.blocker || "No blocker is currently logged."}
                 </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="border-b border-white/8 bg-white/[0.025]">
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-cyan-100" />
+                Collaboration
+              </CardTitle>
+              <CardDescription>
+                Leave context, ask for review, and keep partner alignment close to the plan.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5 pt-6">
+              <div className="grid gap-4 xl:grid-cols-2">
+                <form
+                  action={submitCommentAction}
+                  className="rounded-2xl border border-white/8 bg-white/[0.035] p-4"
+                >
+                  <input type="hidden" name="goalId" value={goal.id} />
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4 text-cyan-100" />
+                    <p className="font-medium text-white">Add comment</p>
+                  </div>
+                  <label
+                    htmlFor="comment-target"
+                    className="mt-4 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
+                  >
+                    Target
+                  </label>
+                  <select
+                    id="comment-target"
+                    name="target"
+                    className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus:border-cyan-400/40 focus:ring-2 focus:ring-cyan-400/20"
+                  >
+                    {targetOptions.map((option) => (
+                      <option key={option.value} value={option.value} className="bg-slate-950">
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <Textarea
+                    name="body"
+                    className="mt-3 min-h-[108px]"
+                    placeholder="Add context, a question, or a note for the household."
+                  />
+                  <Button type="submit" className="mt-3 w-full">
+                    <Send className="h-4 w-4" />
+                    Post comment
+                  </Button>
+                </form>
+
+                <form
+                  action={submitReviewRequestAction}
+                  className="rounded-2xl border border-cyan-300/15 bg-cyan-400/[0.055] p-4"
+                >
+                  <input type="hidden" name="goalId" value={goal.id} />
+                  <div className="flex items-center gap-2">
+                    <Eye className="h-4 w-4 text-cyan-100" />
+                    <p className="font-medium text-white">Request review</p>
+                  </div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label
+                        htmlFor="review-target"
+                        className="block text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100/70"
+                      >
+                        Target
+                      </label>
+                      <select
+                        id="review-target"
+                        name="target"
+                        className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus:border-cyan-400/40 focus:ring-2 focus:ring-cyan-400/20"
+                      >
+                        {targetOptions.map((option) => (
+                          <option key={option.value} value={option.value} className="bg-slate-950">
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="review-assignee"
+                        className="block text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100/70"
+                      >
+                        Reviewer
+                      </label>
+                      <select
+                        id="review-assignee"
+                        name="assignedToUserId"
+                        className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white outline-none focus:border-cyan-400/40 focus:ring-2 focus:ring-cyan-400/20"
+                      >
+                        <option value="" className="bg-slate-950">
+                          Household
+                        </option>
+                        {householdMembers.map((member) => (
+                          <option key={member.id} value={member.userId} className="bg-slate-950">
+                            {member.user.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <Input
+                    name="title"
+                    className="mt-3"
+                    placeholder="Review zoning decision before we rank parcels"
+                  />
+                  <Textarea
+                    name="message"
+                    className="mt-3 min-h-[88px]"
+                    placeholder="What should they look at or decide?"
+                  />
+                  <Input name="dueDate" type="date" className="mt-3" />
+                  <Button type="submit" className="mt-3 w-full">
+                    <Eye className="h-4 w-4" />
+                    Request review
+                  </Button>
+                </form>
+              </div>
+
+              {openReviewRequests.length ? (
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium text-white">Open review requests</p>
+                    <Badge variant="warning">{openReviewRequests.length} open</Badge>
+                  </div>
+                  {openReviewRequests.map((reviewRequest) => (
+                    <article
+                      id={`review-${reviewRequest.id}`}
+                      key={reviewRequest.id}
+                      className="rounded-2xl border border-amber-300/20 bg-amber-400/10 p-4"
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant="warning">Needs review</Badge>
+                            {reviewRequest.decisionLog ? (
+                              <Badge>Decision</Badge>
+                            ) : reviewRequest.milestone ? (
+                              <Badge>Milestone</Badge>
+                            ) : (
+                              <Badge>Plan</Badge>
+                            )}
+                            {reviewRequest.assignedToUser ? (
+                              <Badge variant="accent">
+                                {reviewRequest.assignedToUser.name}
+                              </Badge>
+                            ) : null}
+                          </div>
+                          <h4 className="mt-3 font-semibold text-white">{reviewRequest.title}</h4>
+                          {reviewRequest.message ? (
+                            <p className="mt-2 text-sm leading-6 text-slate-300/85">
+                              {reviewRequest.message}
+                            </p>
+                          ) : null}
+                          <p className="mt-3 text-xs text-slate-400">
+                            Requested by {reviewRequest.requestedByUser.name}{" "}
+                            {formatRelativeDate(reviewRequest.createdAt)}
+                            {reviewRequest.dueDate
+                              ? ` • Due ${formatDate(reviewRequest.dueDate)}`
+                              : ""}
+                          </p>
+                        </div>
+                        <form action={resolveReviewRequestAction}>
+                          <input
+                            type="hidden"
+                            name="reviewRequestId"
+                            value={reviewRequest.id}
+                          />
+                          <Button type="submit" variant="secondary" size="sm">
+                            <CheckCircle2 className="h-4 w-4" />
+                            Resolve
+                          </Button>
+                        </form>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : null}
+
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-medium text-white">Recent comments</p>
+                  {resolvedReviewRequests.length ? (
+                    <Badge>{resolvedReviewRequests.length} resolved reviews</Badge>
+                  ) : null}
+                </div>
+                {goal.comments.length ? (
+                  goal.comments.map((comment) => (
+                    <article
+                      id={`comment-${comment.id}`}
+                      key={comment.id}
+                      className="rounded-2xl border border-white/8 bg-white/[0.035] p-4"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="accent">{comment.user.name}</Badge>
+                        {comment.decisionLog ? (
+                          <Badge>Decision: {comment.decisionLog.title}</Badge>
+                        ) : comment.milestone ? (
+                          <Badge>Milestone: {comment.milestone.title}</Badge>
+                        ) : (
+                          <Badge>Plan</Badge>
+                        )}
+                        <span className="text-xs text-slate-400">
+                          {formatRelativeDate(comment.createdAt)}
+                        </span>
+                      </div>
+                      <p className="mt-3 text-sm leading-6 text-slate-300/85">
+                        {comment.body}
+                      </p>
+                    </article>
+                  ))
+                ) : (
+                  <EmptyState
+                    title="No comments yet"
+                    description="Comments will hold quick questions, partner notes, and review context without polluting the decision log."
+                  />
+                )}
               </div>
             </CardContent>
           </Card>

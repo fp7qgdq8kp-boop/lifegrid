@@ -236,3 +236,118 @@ integrationTest("private decision review reminders notify only the decision owne
     await cleanupFixture(fixture);
   }
 });
+
+integrationTest("comment notifications link to the comment and skip the actor", async () => {
+  const fixture = await createFixture();
+
+  try {
+    const comment = await prisma.comment.create({
+      data: {
+        householdId: fixture.household.id,
+        goalId: fixture.goal.id,
+        userId: fixture.actor.id,
+        body: "Can you review the parcel shortlist?"
+      }
+    });
+
+    await prisma.$transaction(async (tx) => {
+      await createActivityEventWithNotifications({
+        tx,
+        activity: {
+          householdId: fixture.household.id,
+          userId: fixture.actor.id,
+          eventType: "comment.created",
+          entityType: "comment",
+          entityId: comment.id,
+          message: "Actor commented on Shared Test Plan."
+        },
+        notification: {
+          type: "comment_added",
+          title: "New comment",
+          message: "Actor commented on Shared Test Plan.",
+          goalId: fixture.goal.id,
+          commentId: comment.id
+        }
+      });
+    });
+
+    const [actorNotifications, partnerNotification] = await Promise.all([
+      prisma.notification.count({
+        where: {
+          householdId: fixture.household.id,
+          userId: fixture.actor.id,
+          type: "comment_added"
+        }
+      }),
+      prisma.notification.findFirstOrThrow({
+        where: {
+          householdId: fixture.household.id,
+          userId: fixture.partner.id,
+          type: "comment_added"
+        }
+      })
+    ]);
+
+    assert.equal(actorNotifications, 0);
+    assert.equal(
+      partnerNotification.targetHref,
+      `/goals/${fixture.goal.id}#comment-${comment.id}`
+    );
+  } finally {
+    await cleanupFixture(fixture);
+  }
+});
+
+integrationTest("assigned review requests notify the assigned partner", async () => {
+  const fixture = await createFixture();
+
+  try {
+    const reviewRequest = await prisma.reviewRequest.create({
+      data: {
+        householdId: fixture.household.id,
+        goalId: fixture.goal.id,
+        requestedByUserId: fixture.actor.id,
+        assignedToUserId: fixture.partner.id,
+        title: "Review the next step"
+      }
+    });
+
+    await prisma.$transaction(async (tx) => {
+      await createActivityEventWithNotifications({
+        tx,
+        activity: {
+          householdId: fixture.household.id,
+          userId: fixture.actor.id,
+          eventType: "review-request.created",
+          entityType: "review-request",
+          entityId: reviewRequest.id,
+          message: "Actor requested review."
+        },
+        notification: {
+          type: "review_requested",
+          title: "Review requested",
+          message: "Actor requested review.",
+          goalId: fixture.goal.id,
+          reviewRequestId: reviewRequest.id,
+          recipientUserIds: [fixture.partner.id]
+        }
+      });
+    });
+
+    const notifications = await prisma.notification.findMany({
+      where: {
+        householdId: fixture.household.id,
+        type: "review_requested"
+      }
+    });
+
+    assert.equal(notifications.length, 1);
+    assert.equal(notifications[0].userId, fixture.partner.id);
+    assert.equal(
+      notifications[0].targetHref,
+      `/goals/${fixture.goal.id}#review-${reviewRequest.id}`
+    );
+  } finally {
+    await cleanupFixture(fixture);
+  }
+});
