@@ -37,41 +37,43 @@ enum MilestoneStatus {
 }
 
 model User {
-  id                     String            @id @default(cuid())
-  name                   String
-  email                  String            @unique
-  createdAt              DateTime          @default(now())
-  updatedAt              DateTime          @updatedAt
-  createdHouseholds      Household[]       @relation("HouseholdCreator")
-  householdMemberships   HouseholdMember[]
-  ownedGoals             Goal[]
-  progressLogs           ProgressLog[]
-  weeklyReviewsCreated   WeeklyReview[]
-  activityEventsAuthored ActivityEvent[]
-  decisionLogs           DecisionLog[]
-  commentsAuthored       Comment[]
-  reviewRequestsCreated  ReviewRequest[]   @relation("ReviewRequestCreator")
-  reviewRequestsAssigned ReviewRequest[]   @relation("ReviewRequestAssignee")
-  notificationsReceived  Notification[]    @relation("NotificationRecipient")
-  notificationsActed     Notification[]    @relation("NotificationActor")
+  id                      String                   @id @default(cuid())
+  name                    String
+  email                   String                   @unique
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  createdHouseholds       Household[]              @relation("HouseholdCreator")
+  householdMemberships    HouseholdMember[]
+  ownedGoals              Goal[]
+  progressLogs            ProgressLog[]
+  weeklyReviewsCreated    WeeklyReview[]
+  activityEventsAuthored  ActivityEvent[]
+  decisionLogs            DecisionLog[]
+  commentsAuthored        Comment[]
+  reviewRequestsCreated   ReviewRequest[]          @relation("ReviewRequestCreator")
+  reviewRequestsAssigned  ReviewRequest[]          @relation("ReviewRequestAssignee")
+  notificationsReceived   Notification[]           @relation("NotificationRecipient")
+  notificationsActed      Notification[]           @relation("NotificationActor")
+  notificationPreferences NotificationPreference[]
 }
 
 model Household {
-  id              String            @id @default(cuid())
-  name            String
-  createdByUserId String
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  createdByUser   User              @relation("HouseholdCreator", fields: [createdByUserId], references: [id])
-  members         HouseholdMember[]
-  pillars         Pillar[]
-  goals           Goal[]
-  weeklyReviews   WeeklyReview[]
-  activityEvents  ActivityEvent[]
-  decisionLogs    DecisionLog[]
-  comments        Comment[]
-  reviewRequests  ReviewRequest[]
-  notifications   Notification[]
+  id                      String                   @id @default(cuid())
+  name                    String
+  createdByUserId         String
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  createdByUser           User                     @relation("HouseholdCreator", fields: [createdByUserId], references: [id])
+  members                 HouseholdMember[]
+  pillars                 Pillar[]
+  goals                   Goal[]
+  weeklyReviews           WeeklyReview[]
+  activityEvents          ActivityEvent[]
+  decisionLogs            DecisionLog[]
+  comments                Comment[]
+  reviewRequests          ReviewRequest[]
+  notifications           Notification[]
+  notificationPreferences NotificationPreference[]
 }
 
 model HouseholdMember {
@@ -341,4 +343,21 @@ model Notification {
   @@index([milestoneId])
   @@index([commentId])
   @@index([reviewRequestId])
+}
+
+model NotificationPreference {
+  id           String    @id @default(cuid())
+  householdId  String
+  userId       String
+  type         String
+  inAppEnabled Boolean   @default(true)
+  emailEnabled Boolean   @default(false)
+  pushEnabled  Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  household    Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, userId, type])
+  @@index([userId, type])
 }

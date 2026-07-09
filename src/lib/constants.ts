@@ -50,6 +50,84 @@ export const decisionLogStatusOptions = [
   { value: "archived", label: "Archived" }
 ] as const;
 
+export const notificationTypeValues = [
+  "partner_activity",
+  "decision_created",
+  "decision_updated",
+  "milestone_completed",
+  "plan_status_changed",
+  "comment_added",
+  "progress_log_added",
+  "progress_threshold_reached",
+  "review_requested",
+  "review_request_resolved",
+  "review_reminder_due",
+  "system"
+] as const;
+
+export const notificationTypeOptions = [
+  {
+    value: "partner_activity",
+    label: "Partner activity",
+    description: "Shared plan updates that do not fit a more specific lane."
+  },
+  {
+    value: "decision_created",
+    label: "Decision added",
+    description: "New decision logs, research notes, options, and rejections."
+  },
+  {
+    value: "decision_updated",
+    label: "Decision updated",
+    description: "Decision edits, status changes, and archived decisions."
+  },
+  {
+    value: "milestone_completed",
+    label: "Milestones completed",
+    description: "Checklist and milestone wins that move a goal forward."
+  },
+  {
+    value: "plan_status_changed",
+    label: "Plan status changes",
+    description: "Goals moving between active, paused, completed, and archived."
+  },
+  {
+    value: "comment_added",
+    label: "Comments",
+    description: "Discussion on goals, decisions, and milestones."
+  },
+  {
+    value: "progress_log_added",
+    label: "Progress updates",
+    description: "Routine goal progress logs from household members."
+  },
+  {
+    value: "progress_threshold_reached",
+    label: "Progress thresholds",
+    description: "Progress crossing 25%, 50%, 75%, or 100%."
+  },
+  {
+    value: "review_requested",
+    label: "Review requested",
+    description: "A household member asks for review on a goal item."
+  },
+  {
+    value: "review_request_resolved",
+    label: "Review resolved",
+    description: "Review requests that have been marked resolved."
+  },
+  {
+    value: "review_reminder_due",
+    label: "Review reminders",
+    description: "Decision logs whose review date has arrived."
+  },
+  {
+    value: "system",
+    label: "System",
+    description: "Important LifeGrid notices and operational updates."
+  }
+] as const;
+
 export const navigation = [
   { href: "/", label: "Dashboard", description: "Life progress at a glance" },
   { href: "/pillars", label: "Life Pillars", description: "See momentum by domain" },

@@ -8,7 +8,8 @@ import type { FormState } from "@/lib/action-state";
 import { getViewerContext } from "@/lib/auth";
 import {
   decisionLogCategoryValues,
-  decisionLogStatusValues
+  decisionLogStatusValues,
+  notificationTypeValues
 } from "@/lib/constants";
 import { parseMilestoneLinksText } from "@/lib/milestones";
 import { nextStepCategories } from "@/lib/next-steps";
@@ -2108,6 +2109,44 @@ export async function markAllNotificationsReadAction() {
       readAt: new Date()
     }
   });
+
+  revalidateNotifications();
+}
+
+export async function updateNotificationPreferencesAction(formData: FormData) {
+  const enabledTypes = new Set(
+    formData
+      .getAll("inAppEnabled")
+      .filter((value): value is string => typeof value === "string")
+  );
+  const { household, user } = await getViewerContext();
+
+  await prisma.$transaction(
+    notificationTypeValues.map((type) =>
+      prisma.notificationPreference.upsert({
+        where: {
+          householdId_userId_type: {
+            householdId: household.id,
+            userId: user.id,
+            type
+          }
+        },
+        update: {
+          inAppEnabled: enabledTypes.has(type),
+          emailEnabled: false,
+          pushEnabled: false
+        },
+        create: {
+          householdId: household.id,
+          userId: user.id,
+          type,
+          inAppEnabled: enabledTypes.has(type),
+          emailEnabled: false,
+          pushEnabled: false
+        }
+      })
+    )
+  );
 
   revalidateNotifications();
 }

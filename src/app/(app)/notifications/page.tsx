@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { ArrowRight, Bell, CheckCircle2, CircleDot } from "lucide-react";
+import { ArrowRight, Bell, CheckCircle2, CircleDot, SlidersHorizontal } from "lucide-react";
 
 import {
   markAllNotificationsReadAction,
-  markNotificationReadAction
+  markNotificationReadAction,
+  updateNotificationPreferencesAction
 } from "@/actions/lifegrid";
 import { EmptyState } from "@/components/empty-state";
 import { Badge } from "@/components/ui/badge";
@@ -91,8 +92,83 @@ function NotificationCard({ notification }: { notification: NotificationWithCont
   );
 }
 
+type NotificationPreferenceView = Awaited<
+  ReturnType<typeof getNotificationsPageData>
+>["notificationPreferences"][number];
+
+function NotificationPreferencePanel({
+  preferences
+}: {
+  preferences: NotificationPreferenceView[];
+}) {
+  const enabledCount = preferences.filter((preference) => preference.inAppEnabled).length;
+
+  return (
+    <Card>
+      <CardHeader className="border-b border-white/8 bg-white/[0.025]">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <SlidersHorizontal className="h-5 w-5 text-cyan-100" />
+              Notification preferences
+            </CardTitle>
+            <CardDescription>
+              Choose which future in-app updates should reach your command center.
+            </CardDescription>
+          </div>
+          <Badge variant="accent">
+            {enabledCount} of {preferences.length} active
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-6">
+        <form action={updateNotificationPreferencesAction} className="space-y-5">
+          <div className="grid gap-3 lg:grid-cols-2">
+            {preferences.map((preference) => {
+              const inputId = `notification-${preference.value}`;
+
+              return (
+                <label
+                  key={preference.value}
+                  htmlFor={inputId}
+                  className="flex min-h-28 cursor-pointer gap-4 rounded-2xl border border-white/8 bg-white/[0.03] p-4 transition hover:border-cyan-300/20 hover:bg-cyan-400/[0.055]"
+                >
+                  <input
+                    id={inputId}
+                    name="inAppEnabled"
+                    value={preference.value}
+                    type="checkbox"
+                    defaultChecked={preference.inAppEnabled}
+                    className="mt-1 h-5 w-5 shrink-0 accent-cyan-300"
+                  />
+                  <span className="min-w-0">
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold text-white">{preference.label}</span>
+                      <Badge variant="accent">In-app</Badge>
+                    </span>
+                    <span className="mt-2 block text-sm leading-6 text-slate-300/75">
+                      {preference.description}
+                    </span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+          <div className="flex flex-col gap-3 border-t border-white/8 pt-5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-slate-500">
+              Preferences apply to new notifications. Existing notifications stay in your inbox.
+            </p>
+            <Button type="submit">Save preferences</Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default async function NotificationsPage() {
-  const { notifications, unreadNotificationCount } = await getNotificationsPageData();
+  const { notifications, unreadNotificationCount, notificationPreferences } =
+    await getNotificationsPageData();
 
   return (
     <div className="space-y-6 pb-10">
@@ -118,6 +194,8 @@ export default async function NotificationsPage() {
           </div>
         </div>
       </section>
+
+      <NotificationPreferencePanel preferences={notificationPreferences} />
 
       <Card>
         <CardHeader className="border-b border-white/8 bg-white/[0.025]">

@@ -1,21 +1,9 @@
 import { Prisma } from "@prisma/client";
 
+import { notificationTypeValues } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 
-export const notificationTypes = [
-  "partner_activity",
-  "decision_created",
-  "decision_updated",
-  "milestone_completed",
-  "plan_status_changed",
-  "comment_added",
-  "progress_log_added",
-  "progress_threshold_reached",
-  "review_requested",
-  "review_request_resolved",
-  "review_reminder_due",
-  "system"
-] as const;
+export const notificationTypes = notificationTypeValues;
 
 export type NotificationType = (typeof notificationTypes)[number];
 
@@ -89,29 +77,55 @@ async function getNotificationRecipientIds({
   householdId,
   actorUserId,
   includeActor,
-  recipientUserIds
+  recipientUserIds,
+  notificationType
 }: {
   tx: Prisma.TransactionClient;
   householdId: string;
   actorUserId: string | null;
   includeActor: boolean;
   recipientUserIds?: string[];
+  notificationType: NotificationType;
 }) {
-  if (recipientUserIds?.length) {
-    return uniqueValues(
-      recipientUserIds.filter((userId) => includeActor || userId !== actorUserId)
-    );
+  const candidateIds = recipientUserIds?.length
+    ? uniqueValues(recipientUserIds)
+    : uniqueValues(
+        (
+          await tx.householdMember.findMany({
+            where: { householdId },
+            select: { userId: true }
+          })
+        ).map((member) => member.userId)
+      );
+  const eligibleIds = candidateIds.filter(
+    (userId) => includeActor || userId !== actorUserId
+  );
+
+  if (!eligibleIds.length) {
+    return [];
   }
 
-  const members = await tx.householdMember.findMany({
-    where: { householdId },
-    select: { userId: true }
+  const preferences = await tx.notificationPreference.findMany({
+    where: {
+      householdId,
+      userId: {
+        in: eligibleIds
+      },
+      type: notificationType
+    },
+    select: {
+      userId: true,
+      inAppEnabled: true
+    }
   });
 
-  return members
-    .map((member) => member.userId)
-    .filter((userId, index, userIds) => userIds.indexOf(userId) === index)
-    .filter((userId) => includeActor || userId !== actorUserId);
+  const disabledUserIds = new Set(
+    preferences
+      .filter((preference) => !preference.inAppEnabled)
+      .map((preference) => preference.userId)
+  );
+
+  return eligibleIds.filter((userId) => !disabledUserIds.has(userId));
 }
 
 export async function createActivityEventWithNotifications({
@@ -137,7 +151,8 @@ export async function createActivityEventWithNotifications({
     householdId: activity.householdId,
     actorUserId,
     includeActor: Boolean(notification.includeActor),
-    recipientUserIds: notification.recipientUserIds
+    recipientUserIds: notification.recipientUserIds,
+    notificationType: notification.type
   });
 
   if (!recipientIds.length) {

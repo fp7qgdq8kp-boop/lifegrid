@@ -1,6 +1,7 @@
 import { GoalStatus } from "@prisma/client";
 
 import { getViewerContext } from "@/lib/auth";
+import { notificationTypeOptions } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import {
   getNextStepSuggestions,
@@ -354,7 +355,7 @@ export async function getNotificationsPageData() {
 
   await ensureDueDecisionReviewNotifications(household.id);
 
-  const [notifications, unreadNotificationCount] = await Promise.all([
+  const [notifications, unreadNotificationCount, preferences] = await Promise.all([
     prisma.notification.findMany({
       where: {
         householdId: household.id,
@@ -377,11 +378,30 @@ export async function getNotificationsPageData() {
         userId: user.id,
         readAt: null
       }
+    }),
+    prisma.notificationPreference.findMany({
+      where: {
+        householdId: household.id,
+        userId: user.id
+      }
     })
   ]);
+  const preferenceByType = new Map(
+    preferences.map((preference) => [preference.type, preference])
+  );
 
   return {
     notifications,
-    unreadNotificationCount
+    unreadNotificationCount,
+    notificationPreferences: notificationTypeOptions.map((option) => {
+      const preference = preferenceByType.get(option.value);
+
+      return {
+        ...option,
+        inAppEnabled: preference?.inAppEnabled ?? true,
+        emailEnabled: preference?.emailEnabled ?? false,
+        pushEnabled: preference?.pushEnabled ?? false
+      };
+    })
   };
 }

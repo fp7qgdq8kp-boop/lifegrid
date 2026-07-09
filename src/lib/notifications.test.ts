@@ -134,6 +134,52 @@ integrationTest("partner notifications exclude the actor by default", async () =
   }
 });
 
+integrationTest("notification preferences can mute a type for a recipient", async () => {
+  const fixture = await createFixture();
+
+  try {
+    await prisma.notificationPreference.create({
+      data: {
+        householdId: fixture.household.id,
+        userId: fixture.partner.id,
+        type: "decision_created",
+        inAppEnabled: false
+      }
+    });
+
+    await prisma.$transaction(async (tx) => {
+      await createActivityEventWithNotifications({
+        tx,
+        activity: {
+          householdId: fixture.household.id,
+          userId: fixture.actor.id,
+          eventType: "decision-log.created",
+          entityType: "decision-log",
+          entityId: fixture.goal.id,
+          message: "Actor added a decision."
+        },
+        notification: {
+          type: "decision_created",
+          title: "Decision added",
+          message: "Actor added a decision to Shared Test Plan.",
+          goalId: fixture.goal.id
+        }
+      });
+    });
+
+    const notifications = await prisma.notification.findMany({
+      where: {
+        householdId: fixture.household.id,
+        type: "decision_created"
+      }
+    });
+
+    assert.equal(notifications.length, 0);
+  } finally {
+    await cleanupFixture(fixture);
+  }
+});
+
 integrationTest("milestone-style notifications can include the actor", async () => {
   const fixture = await createFixture();
 
