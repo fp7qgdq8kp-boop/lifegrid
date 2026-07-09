@@ -12,7 +12,9 @@ import {
 } from "@/lib/constants";
 import { parseMilestoneLinksText } from "@/lib/milestones";
 import { nextStepCategories } from "@/lib/next-steps";
+import { createActivityEventWithNotifications } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
+import { calculateGoalProgress } from "@/lib/progress";
 import { emptyToNull, toNumberOrNull } from "@/lib/utils";
 
 const goalSchema = z.object({
@@ -133,9 +135,16 @@ async function logActivity(input: {
   entityType: string;
   entityId: string;
   message: string;
+  notification?: Parameters<typeof createActivityEventWithNotifications>[0]["notification"];
 }) {
-  await prisma.activityEvent.create({
-    data: input
+  const { notification, ...activity } = input;
+
+  await prisma.$transaction(async (tx) => {
+    await createActivityEventWithNotifications({
+      tx,
+      activity,
+      notification
+    });
   });
 }
 
@@ -145,10 +154,15 @@ function revalidateLifeGrid(goalId?: string) {
   revalidatePath("/pillars");
   revalidatePath("/weekly-review");
   revalidatePath("/activity");
+  revalidatePath("/notifications");
 
   if (goalId) {
     revalidatePath(`/goals/${goalId}`);
   }
+}
+
+function revalidateNotifications() {
+  revalidatePath("/notifications");
 }
 
 function toOptionalDate(value: string | undefined) {
@@ -181,6 +195,75 @@ function parseMilestoneCustomFields(formData: FormData) {
   return customFields;
 }
 
+function humanizeStatus(value: string) {
+  return value
+    .toLowerCase()
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function changedGoalFields(existingGoal: {
+  title: string;
+  description: string | null;
+  status: GoalStatus;
+  deadline: Date | null;
+  nextAction: string | null;
+  blocker: string | null;
+}, payload: z.infer<typeof updateGoalSchema>) {
+  const changes: Record<string, { oldValue: string | null; newValue: string | null }> = {};
+  const normalizedDescription = emptyToNull(payload.description);
+  const normalizedNextAction = emptyToNull(payload.nextAction);
+  const normalizedBlocker = emptyToNull(payload.blocker);
+  const normalizedDeadline = payload.deadline ? new Date(payload.deadline) : null;
+
+  if (existingGoal.title !== payload.title) {
+    changes.title = { oldValue: existingGoal.title, newValue: payload.title };
+  }
+
+  if ((existingGoal.description ?? null) !== normalizedDescription) {
+    changes.description = {
+      oldValue: existingGoal.description,
+      newValue: normalizedDescription
+    };
+  }
+
+  if (existingGoal.status !== payload.status) {
+    changes.status = {
+      oldValue: existingGoal.status,
+      newValue: payload.status
+    };
+  }
+
+  if ((existingGoal.nextAction ?? null) !== normalizedNextAction) {
+    changes.nextAction = {
+      oldValue: existingGoal.nextAction,
+      newValue: normalizedNextAction
+    };
+  }
+
+  if ((existingGoal.blocker ?? null) !== normalizedBlocker) {
+    changes.blocker = {
+      oldValue: existingGoal.blocker,
+      newValue: normalizedBlocker
+    };
+  }
+
+  if ((existingGoal.deadline?.toISOString() ?? null) !== (normalizedDeadline?.toISOString() ?? null)) {
+    changes.deadline = {
+      oldValue: existingGoal.deadline?.toISOString() ?? null,
+      newValue: normalizedDeadline?.toISOString() ?? null
+    };
+  }
+
+  return changes;
+}
+
+function crossedProgressThreshold(previousProgress: number, nextProgress: number) {
+  return [25, 50, 75, 100].find(
+    (threshold) => previousProgress < threshold && nextProgress >= threshold
+  );
+}
+
 type CompletableMilestone = {
   id: string;
   title: string;
@@ -190,6 +273,7 @@ type CompletableMilestone = {
     id: string;
     title: string;
     goalType: GoalType;
+    isShared: boolean;
     milestones: Array<{
       id: string;
       status: MilestoneStatus;
@@ -246,14 +330,31 @@ async function completeMilestoneInTransaction({
     });
   }
 
-  await tx.activityEvent.create({
-    data: {
+  await createActivityEventWithNotifications({
+    tx,
+    activity: {
       householdId,
       userId,
       eventType: "milestone.completed",
       entityType: "milestone",
       entityId: milestone.id,
       message: `${milestone.title} was completed for ${milestone.goal.title}.`
+    },
+    notification: {
+      type: goalCompleted ? "plan_status_changed" : "milestone_completed",
+      title: goalCompleted ? "Goal completed" : "Milestone completed",
+      message: goalCompleted
+        ? `${milestone.goal.title} is complete.`
+        : `${milestone.title} was completed for ${milestone.goal.title}.`,
+      goalId: milestone.goal.id,
+      milestoneId: milestone.id,
+      includeActor: true,
+      recipientUserIds: milestone.goal.isShared ? undefined : [userId],
+      metadata: {
+        milestoneTitle: milestone.title,
+        goalTitle: milestone.goal.title,
+        goalCompleted
+      }
     }
   });
 }
@@ -311,7 +412,21 @@ export async function createGoalAction(_: FormState, formData: FormData): Promis
     eventType: "goal.created",
     entityType: "goal",
     entityId: goal.id,
-    message: `${goal.title} was added under ${pillar.name}.`
+    message: `${goal.title} was added under ${pillar.name}.`,
+    notification: goal.isShared
+      ? {
+          type: "partner_activity",
+          title: "Plan added",
+          message: `${user.name} added ${goal.title} under ${pillar.name}.`,
+          goalId: goal.id,
+          pillarId: pillar.id,
+          metadata: {
+            goalTitle: goal.title,
+            pillarName: pillar.name,
+            status: goal.status
+          }
+        }
+      : undefined
   });
 
   revalidateLifeGrid(goal.id);
@@ -364,35 +479,65 @@ export async function updateGoalAction(_: FormState, formData: FormData): Promis
     };
   }
 
-  await prisma.goal.update({
-    where: { id: existingGoal.id },
-    data: {
-      pillarId: pillar.id,
-      title: payload.title,
-      description: emptyToNull(payload.description),
-      goalType: payload.goalType,
-      targetValue: toNumberOrNull(payload.targetValue),
-      currentValue: toNumberOrNull(payload.currentValue),
-      unit: emptyToNull(payload.unit),
-      status: payload.status,
-      deadline: payload.deadline ? new Date(payload.deadline) : null,
-      nextAction: emptyToNull(payload.nextAction),
-      blocker: emptyToNull(payload.blocker),
-      isShared: payload.isShared === "true",
-      completedAt:
-        payload.status === GoalStatus.COMPLETED
-          ? existingGoal.completedAt ?? new Date()
-          : null
-    }
-  });
+  const changes = changedGoalFields(existingGoal, payload);
+  const changedFieldNames = Object.keys(changes);
+  const statusChanged = Boolean(changes.status);
 
-  await logActivity({
-    householdId: household.id,
-    userId: user.id,
-    eventType: "goal.updated",
-    entityType: "goal",
-    entityId: existingGoal.id,
-    message: `${payload.title} was updated.`
+  await prisma.$transaction(async (tx) => {
+    await tx.goal.update({
+      where: { id: existingGoal.id },
+      data: {
+        pillarId: pillar.id,
+        title: payload.title,
+        description: emptyToNull(payload.description),
+        goalType: payload.goalType,
+        targetValue: toNumberOrNull(payload.targetValue),
+        currentValue: toNumberOrNull(payload.currentValue),
+        unit: emptyToNull(payload.unit),
+        status: payload.status,
+        deadline: payload.deadline ? new Date(payload.deadline) : null,
+        nextAction: emptyToNull(payload.nextAction),
+        blocker: emptyToNull(payload.blocker),
+        isShared: payload.isShared === "true",
+        completedAt:
+          payload.status === GoalStatus.COMPLETED
+            ? existingGoal.completedAt ?? new Date()
+            : null
+      }
+    });
+
+    await createActivityEventWithNotifications({
+      tx,
+      activity: {
+        householdId: household.id,
+        userId: user.id,
+        eventType: "goal.updated",
+        entityType: "goal",
+        entityId: existingGoal.id,
+        message: `${payload.title} was updated.`
+      },
+      notification: changedFieldNames.length
+        ? payload.isShared === "true" || payload.status === GoalStatus.COMPLETED
+          ? {
+            type: statusChanged ? "plan_status_changed" : "partner_activity",
+            title: statusChanged ? "Plan status changed" : "Plan updated",
+            message: statusChanged
+              ? `${user.name} moved ${payload.title} from ${humanizeStatus(
+                  existingGoal.status
+                )} to ${humanizeStatus(payload.status)}.`
+              : `${user.name} updated ${payload.title}.`,
+            goalId: existingGoal.id,
+            pillarId: pillar.id,
+            includeActor: payload.status === GoalStatus.COMPLETED,
+            recipientUserIds: payload.isShared === "true" ? undefined : [user.id],
+            metadata: {
+              changedFields: changedFieldNames,
+              changes
+            }
+          }
+          : undefined
+        : undefined
+    });
   });
 
   revalidateLifeGrid(existingGoal.id);
@@ -449,15 +594,31 @@ export async function createDecisionLogAction(
       }
     });
 
-    await tx.activityEvent.create({
-      data: {
+    await createActivityEventWithNotifications({
+      tx,
+      activity: {
         householdId: household.id,
         userId: user.id,
         eventType: "decision-log.created",
         entityType: "decision-log",
         entityId: created.id,
         message: `Decision logged for ${goal.title}: ${created.title}.`
+      },
+      notification: goal.isShared
+        ? {
+        type: "decision_created",
+        title: "Decision added",
+        message: `${user.name} added a new decision to ${goal.title}.`,
+        goalId: goal.id,
+        decisionLogId: created.id,
+        metadata: {
+          decisionTitle: created.title,
+          goalTitle: goal.title,
+          category: created.category,
+          status: created.status
+        }
       }
+        : undefined
     });
 
     return created;
@@ -519,15 +680,32 @@ export async function updateDecisionLogAction(
       }
     });
 
-    await tx.activityEvent.create({
-      data: {
+    await createActivityEventWithNotifications({
+      tx,
+      activity: {
         householdId: household.id,
         userId: user.id,
         eventType: "decision-log.updated",
         entityType: "decision-log",
         entityId: existingDecisionLog.id,
         message: `Decision updated for ${existingDecisionLog.goal.title}: ${payload.title}.`
+      },
+      notification: existingDecisionLog.goal.isShared
+        ? {
+        type: "decision_updated",
+        title: "Decision updated",
+        message: `${user.name} updated a decision in ${existingDecisionLog.goal.title}.`,
+        goalId: existingDecisionLog.goal.id,
+        decisionLogId: existingDecisionLog.id,
+        metadata: {
+          decisionTitle: payload.title,
+          previousTitle: existingDecisionLog.title,
+          goalTitle: existingDecisionLog.goal.title,
+          category: payload.category,
+          status: payload.status
+        }
       }
+        : undefined
     });
   });
 
@@ -569,15 +747,30 @@ export async function archiveDecisionLogAction(formData: FormData) {
       }
     });
 
-    await tx.activityEvent.create({
-      data: {
+    await createActivityEventWithNotifications({
+      tx,
+      activity: {
         householdId: household.id,
         userId: user.id,
         eventType: "decision-log.archived",
         entityType: "decision-log",
         entityId: decisionLog.id,
         message: `Decision archived for ${decisionLog.goal.title}: ${decisionLog.title}.`
+      },
+      notification: decisionLog.goal.isShared
+        ? {
+        type: "decision_updated",
+        title: "Decision archived",
+        message: `${user.name} archived a decision in ${decisionLog.goal.title}.`,
+        goalId: decisionLog.goal.id,
+        decisionLogId: decisionLog.id,
+        metadata: {
+          decisionTitle: decisionLog.title,
+          goalTitle: decisionLog.goal.title,
+          status: "archived"
+        }
       }
+        : undefined
     });
   });
 
@@ -716,7 +909,12 @@ export async function updateGoalProgressAction(
       householdId: household.id
     },
     include: {
-      pillar: true
+      pillar: true,
+      milestones: {
+        select: {
+          status: true
+        }
+      }
     }
   });
 
@@ -742,9 +940,15 @@ export async function updateGoalProgressAction(
   }
 
   const newValue = requiresNumericValue ? parsedNewValue : goal.currentValue;
+  const previousProgress = calculateGoalProgress(goal);
+  const nextProgress = calculateGoalProgress({
+    ...goal,
+    currentValue: newValue
+  });
+  const reachedThreshold = crossedProgressThreshold(previousProgress, nextProgress);
 
   await prisma.$transaction(async (tx) => {
-    await tx.progressLog.create({
+    const progressLog = await tx.progressLog.create({
       data: {
         goalId: goal.id,
         userId: user.id,
@@ -763,8 +967,9 @@ export async function updateGoalProgressAction(
       }
     });
 
-    await tx.activityEvent.create({
-      data: {
+    await createActivityEventWithNotifications({
+      tx,
+      activity: {
         householdId: household.id,
         userId: user.id,
         eventType: "goal.progress-updated",
@@ -774,7 +979,41 @@ export async function updateGoalProgressAction(
           goal.goalType === GoalType.CHECKLIST
             ? `${goal.title} received a progress note.`
             : `${goal.title} moved from ${goal.currentValue ?? 0} to ${newValue ?? 0}.`
-      }
+      },
+      notification: reachedThreshold
+        ? {
+            type: "progress_threshold_reached",
+            title: "Progress milestone reached",
+            message: `${goal.title} reached ${reachedThreshold}% progress.`,
+            goalId: goal.id,
+            pillarId: goal.pillarId,
+            progressLogId: progressLog.id,
+            includeActor: true,
+            recipientUserIds: goal.isShared ? undefined : [user.id],
+            metadata: {
+              previousProgress,
+              nextProgress,
+              reachedThreshold,
+              previousValue: goal.currentValue,
+              newValue
+            }
+          }
+        : goal.isShared
+          ? {
+            type: "progress_log_added",
+            title: "Progress updated",
+            message: `${user.name} updated progress on ${goal.title}.`,
+            goalId: goal.id,
+            pillarId: goal.pillarId,
+            progressLogId: progressLog.id,
+            metadata: {
+              previousValue: goal.currentValue,
+              newValue,
+              previousProgress,
+              nextProgress
+            }
+          }
+          : undefined
     });
   });
 
@@ -853,7 +1092,20 @@ export async function createMilestoneAction(
     eventType: "milestone.created",
     entityType: "milestone",
     entityId: milestone.id,
-    message: `A milestone was added to ${goal.title}: ${milestone.title}.`
+    message: `A milestone was added to ${goal.title}: ${milestone.title}.`,
+    notification: goal.isShared
+      ? {
+      type: "partner_activity",
+      title: "Milestone added",
+      message: `${user.name} added a milestone to ${goal.title}.`,
+      goalId: goal.id,
+      milestoneId: milestone.id,
+      metadata: {
+        goalTitle: goal.title,
+        milestoneTitle: milestone.title
+      }
+    }
+      : undefined
   });
 
   revalidateLifeGrid(goal.id);
@@ -957,15 +1209,30 @@ export async function updateMilestoneAction(
       });
     }
 
-    await tx.activityEvent.create({
-      data: {
+    await createActivityEventWithNotifications({
+      tx,
+      activity: {
         householdId: household.id,
         userId: user.id,
         eventType: "milestone.updated",
         entityType: "milestone",
         entityId: milestone.id,
         message: `${payload.title} details were updated for ${milestone.goal.title}.`
+      },
+      notification: milestone.goal.isShared
+        ? {
+        type: "partner_activity",
+        title: "Milestone updated",
+        message: `${user.name} updated a milestone in ${milestone.goal.title}.`,
+        goalId: milestone.goal.id,
+        milestoneId: milestone.id,
+        metadata: {
+          goalTitle: milestone.goal.title,
+          milestoneTitle: payload.title,
+          status: payload.status
+        }
       }
+        : undefined
     });
   });
 
@@ -1084,4 +1351,45 @@ export async function createWeeklyReviewAction(
     status: "success",
     message: "Weekly review saved."
   };
+}
+
+export async function markNotificationReadAction(formData: FormData) {
+  const notificationId = formData.get("notificationId");
+
+  if (typeof notificationId !== "string" || !notificationId) {
+    return;
+  }
+
+  const { household, user } = await getViewerContext();
+
+  await prisma.notification.updateMany({
+    where: {
+      id: notificationId,
+      householdId: household.id,
+      userId: user.id,
+      readAt: null
+    },
+    data: {
+      readAt: new Date()
+    }
+  });
+
+  revalidateNotifications();
+}
+
+export async function markAllNotificationsReadAction() {
+  const { household, user } = await getViewerContext();
+
+  await prisma.notification.updateMany({
+    where: {
+      householdId: household.id,
+      userId: user.id,
+      readAt: null
+    },
+    data: {
+      readAt: new Date()
+    }
+  });
+
+  revalidateNotifications();
 }

@@ -307,6 +307,7 @@ export default async function GoalDetailPage({
 
                   return (
                     <article
+                      id={`decision-${decisionLog.id}`}
                       key={decisionLog.id}
                       className={
                         decisionLog.status === "archived"
@@ -416,9 +417,10 @@ export default async function GoalDetailPage({
                   const milestoneHasDetails = hasMilestoneDetails(milestone);
 
                   return (
-                    <div
-                      key={milestone.id}
-                      className="rounded-2xl border border-white/8 bg-white/[0.035] p-4"
+                  <div
+                    id={`milestone-${milestone.id}`}
+                    key={milestone.id}
+                    className="rounded-2xl border border-white/8 bg-white/[0.035] p-4"
                     >
                       <div className="flex flex-col gap-4">
                         <div className="flex items-start gap-3">

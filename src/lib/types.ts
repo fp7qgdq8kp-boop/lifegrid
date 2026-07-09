@@ -63,3 +63,16 @@ export const weeklyReviewArgs = Prisma.validator<Prisma.WeeklyReviewDefaultArgs>
 });
 
 export type WeeklyReviewWithAuthor = Prisma.WeeklyReviewGetPayload<typeof weeklyReviewArgs>;
+
+export const notificationArgs = Prisma.validator<Prisma.NotificationDefaultArgs>()({
+  include: {
+    actorUser: true,
+    goal: {
+      include: {
+        pillar: true
+      }
+    }
+  }
+});
+
+export type NotificationWithContext = Prisma.NotificationGetPayload<typeof notificationArgs>;

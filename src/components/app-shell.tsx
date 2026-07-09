@@ -1,8 +1,11 @@
 import type { ReactNode } from "react";
 
 import { SidebarNav } from "@/components/sidebar-nav";
+import { getNotificationShellData } from "@/lib/data";
 
-export function AppShell({ children }: { children: ReactNode }) {
+export async function AppShell({ children }: { children: ReactNode }) {
+  const { unreadNotificationCount } = await getNotificationShellData();
+
   return (
     <div className="relative min-h-dvh">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.14),transparent_28%),radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_24%),radial-gradient(circle_at_bottom,rgba(15,23,42,0.9),transparent_40%)]" />
@@ -19,7 +22,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               A focused dashboard for goals, blockers, momentum, and the next action that matters.
             </p>
           </div>
-          <SidebarNav />
+          <SidebarNav unreadNotificationCount={unreadNotificationCount} />
           <div className="mt-8 rounded-2xl border border-white/8 bg-white/5 p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
               Auth Stub

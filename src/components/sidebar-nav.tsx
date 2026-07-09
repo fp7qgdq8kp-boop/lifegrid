@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Activity,
+  Bell,
   Compass,
   LayoutDashboard,
   NotebookPen,
@@ -18,10 +19,11 @@ const iconMap = {
   "Life Pillars": Compass,
   Goals: Target,
   "Weekly Review": NotebookPen,
+  Notifications: Bell,
   Activity
 };
 
-export function SidebarNav() {
+export function SidebarNav({ unreadNotificationCount = 0 }: { unreadNotificationCount?: number }) {
   const pathname = usePathname();
 
   return (
@@ -45,11 +47,16 @@ export function SidebarNav() {
             <div className="flex items-center gap-3">
               <div
                 className={cn(
-                  "rounded-xl p-2",
+                  "relative rounded-xl p-2",
                   isActive ? "bg-cyan-300/15 text-cyan-100" : "bg-white/5 text-foreground/60"
                 )}
               >
                 <Icon className="h-4 w-4" />
+                {item.label === "Notifications" && unreadNotificationCount > 0 ? (
+                  <span className="absolute -right-1 -top-1 min-w-5 rounded-full border border-slate-950 bg-cyan-300 px-1.5 py-0.5 text-center text-[10px] font-bold leading-none text-slate-950">
+                    {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+                  </span>
+                ) : null}
               </div>
               <div>
                 <p className="text-sm font-semibold">{item.label}</p>

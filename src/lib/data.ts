@@ -9,6 +9,7 @@ import {
   type NextStepSuggestion,
   sortNextStepSuggestions
 } from "@/lib/next-steps";
+import { ensureDueDecisionReviewNotifications } from "@/lib/notifications";
 import {
   calculateGoalProgress,
   calculateOverallProgress,
@@ -18,6 +19,7 @@ import {
 import {
   activityEventArgs,
   goalCardArgs,
+  notificationArgs,
   pillarWithGoalsArgs,
   weeklyReviewArgs
 } from "@/lib/types";
@@ -105,6 +107,24 @@ export async function getDashboardData() {
     reviews,
     activity,
     recentWins
+  };
+}
+
+export async function getNotificationShellData() {
+  const { household, user } = await getViewerContext();
+
+  await ensureDueDecisionReviewNotifications(household.id);
+
+  const unreadNotificationCount = await prisma.notification.count({
+    where: {
+      householdId: household.id,
+      userId: user.id,
+      readAt: null
+    }
+  });
+
+  return {
+    unreadNotificationCount
   };
 }
 
@@ -266,4 +286,41 @@ export async function getActivityPageData() {
     take: 50,
     include: activityEventArgs.include
   });
+}
+
+export async function getNotificationsPageData() {
+  const { household, user } = await getViewerContext();
+
+  await ensureDueDecisionReviewNotifications(household.id);
+
+  const [notifications, unreadNotificationCount] = await Promise.all([
+    prisma.notification.findMany({
+      where: {
+        householdId: household.id,
+        userId: user.id
+      },
+      orderBy: [
+        {
+          readAt: "asc"
+        },
+        {
+          createdAt: "desc"
+        }
+      ],
+      take: 60,
+      include: notificationArgs.include
+    }),
+    prisma.notification.count({
+      where: {
+        householdId: household.id,
+        userId: user.id,
+        readAt: null
+      }
+    })
+  ]);
+
+  return {
+    notifications,
+    unreadNotificationCount
+  };
 }

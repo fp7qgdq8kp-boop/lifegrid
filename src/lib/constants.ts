@@ -55,6 +55,7 @@ export const navigation = [
   { href: "/pillars", label: "Life Pillars", description: "See momentum by domain" },
   { href: "/goals", label: "Goals", description: "Manage active work" },
   { href: "/weekly-review", label: "Weekly Review", description: "Capture wins and friction" },
+  { href: "/notifications", label: "Notifications", description: "Meaningful updates" },
   { href: "/activity", label: "Activity", description: "Timeline of movement" }
 ] as const;
 
