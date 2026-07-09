@@ -127,6 +127,7 @@ model Goal {
   milestones     Milestone[]
   progressLogs   ProgressLog[]
   decisionLogs   DecisionLog[]
+  activityEvents ActivityEvent[]
   comments       Comment[]
   reviewRequests ReviewRequest[]
   notifications  Notification[]
@@ -221,16 +222,24 @@ model ActivityEvent {
   id            String         @id @default(cuid())
   householdId   String
   userId        String?
+  goalId        String?
   eventType     String
   entityType    String
   entityId      String
+  action        String?
+  oldValue      Json?
+  newValue      Json?
+  metadata      Json?
   message       String
   createdAt     DateTime       @default(now())
   household     Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  goal          Goal?          @relation(fields: [goalId], references: [id], onDelete: SetNull)
   user          User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
   notifications Notification[]
 
   @@index([householdId, createdAt])
+  @@index([goalId, createdAt])
+  @@index([action, createdAt])
   @@index([entityType, entityId])
 }
 

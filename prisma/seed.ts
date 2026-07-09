@@ -427,9 +427,21 @@ async function main() {
       data: {
         householdId: household.id,
         userId: jay.id,
+        goalId: goal.id,
         eventType: "goal.created",
         entityType: "goal",
         entityId: goal.id,
+        action: "created",
+        newValue: {
+          title: goal.title,
+          status: goal.status,
+          pillarName: pillar.name
+        },
+        metadata: {
+          goalTitle: goal.title,
+          pillarName: pillar.name,
+          isShared: goal.isShared
+        },
         message: `${goal.title} was added under ${pillar.name}.`,
         createdAt: goalActivityCreatedAt
       }
@@ -455,9 +467,21 @@ async function main() {
           data: {
             householdId: household.id,
             userId: jay.id,
+            goalId: goal.id,
             eventType: "decision-log.created",
             entityType: "decision-log",
             entityId: decisionLog.id,
+            action: "created",
+            newValue: {
+              title: decisionLog.title,
+              category: decisionLog.category,
+              status: decisionLog.status,
+              reviewDate: decisionLog.reviewDate?.toISOString() ?? null
+            },
+            metadata: {
+              goalTitle: goal.title,
+              decisionTitle: decisionLog.title
+            },
             message: `Decision logged for ${goal.title}: ${decisionLog.title}.`,
             createdAt: new Date(
               goalActivityCreatedAt.getTime() + (decisionIndex + 1) * 5 * 60 * 1000
@@ -475,6 +499,10 @@ async function main() {
       eventType: "household.created",
       entityType: "household",
       entityId: household.id,
+      action: "created",
+      metadata: {
+        householdName: household.name
+      },
       message: "Bentley Family was initialized in LifeGrid.",
       createdAt: new Date(now.getTime() - 12 * 60 * 60 * 1000)
     }

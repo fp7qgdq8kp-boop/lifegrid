@@ -159,9 +159,14 @@ function getFieldErrors(error: z.ZodError): Record<string, string[] | undefined>
 async function logActivity(input: {
   householdId: string;
   userId: string;
+  goalId?: string | null;
   eventType: string;
   entityType: string;
   entityId: string;
+  action?: string | null;
+  oldValue?: Prisma.InputJsonValue;
+  newValue?: Prisma.InputJsonValue;
+  metadata?: Prisma.InputJsonValue;
   message: string;
   notification?: Parameters<typeof createActivityEventWithNotifications>[0]["notification"];
 }) {
@@ -231,18 +236,35 @@ function humanizeStatus(value: string) {
 }
 
 function changedGoalFields(existingGoal: {
+  pillarId: string;
   title: string;
   description: string | null;
+  goalType: GoalType;
+  targetValue: number | null;
+  currentValue: number | null;
+  unit: string | null;
   status: GoalStatus;
   deadline: Date | null;
   nextAction: string | null;
   blocker: string | null;
+  isShared: boolean;
 }, payload: z.infer<typeof updateGoalSchema>) {
-  const changes: Record<string, { oldValue: string | null; newValue: string | null }> = {};
+  const changes: Record<
+    string,
+    { oldValue: string | number | boolean | null; newValue: string | number | boolean | null }
+  > = {};
   const normalizedDescription = emptyToNull(payload.description);
   const normalizedNextAction = emptyToNull(payload.nextAction);
   const normalizedBlocker = emptyToNull(payload.blocker);
+  const normalizedTargetValue = toNumberOrNull(payload.targetValue);
+  const normalizedCurrentValue = toNumberOrNull(payload.currentValue);
+  const normalizedUnit = emptyToNull(payload.unit);
   const normalizedDeadline = payload.deadline ? new Date(payload.deadline) : null;
+  const normalizedIsShared = payload.isShared === "true";
+
+  if (existingGoal.pillarId !== payload.pillarId) {
+    changes.pillarId = { oldValue: existingGoal.pillarId, newValue: payload.pillarId };
+  }
 
   if (existingGoal.title !== payload.title) {
     changes.title = { oldValue: existingGoal.title, newValue: payload.title };
@@ -252,6 +274,31 @@ function changedGoalFields(existingGoal: {
     changes.description = {
       oldValue: existingGoal.description,
       newValue: normalizedDescription
+    };
+  }
+
+  if (existingGoal.goalType !== payload.goalType) {
+    changes.goalType = { oldValue: existingGoal.goalType, newValue: payload.goalType };
+  }
+
+  if ((existingGoal.targetValue ?? null) !== normalizedTargetValue) {
+    changes.targetValue = {
+      oldValue: existingGoal.targetValue,
+      newValue: normalizedTargetValue
+    };
+  }
+
+  if ((existingGoal.currentValue ?? null) !== normalizedCurrentValue) {
+    changes.currentValue = {
+      oldValue: existingGoal.currentValue,
+      newValue: normalizedCurrentValue
+    };
+  }
+
+  if ((existingGoal.unit ?? null) !== normalizedUnit) {
+    changes.unit = {
+      oldValue: existingGoal.unit,
+      newValue: normalizedUnit
     };
   }
 
@@ -283,6 +330,13 @@ function changedGoalFields(existingGoal: {
     };
   }
 
+  if (existingGoal.isShared !== normalizedIsShared) {
+    changes.isShared = {
+      oldValue: existingGoal.isShared,
+      newValue: normalizedIsShared
+    };
+  }
+
   return changes;
 }
 
@@ -290,6 +344,14 @@ function crossedProgressThreshold(previousProgress: number, nextProgress: number
   return [25, 50, 75, 100].find(
     (threshold) => previousProgress < threshold && nextProgress >= threshold
   );
+}
+
+function jsonDate(value: Date | null | undefined) {
+  return value?.toISOString() ?? null;
+}
+
+function summarizeChangedKeys(changes: Record<string, unknown>) {
+  return Object.keys(changes).filter((key) => Boolean(changes[key]));
 }
 
 function parseCollaborationTarget(value: string | undefined) {
@@ -462,9 +524,24 @@ async function completeMilestoneInTransaction({
     activity: {
       householdId,
       userId,
+      goalId: milestone.goal.id,
       eventType: "milestone.completed",
       entityType: "milestone",
       entityId: milestone.id,
+      action: "completed",
+      oldValue: {
+        status: milestone.status,
+        completedAt: jsonDate(milestone.completedAt)
+      },
+      newValue: {
+        status: MilestoneStatus.COMPLETED,
+        completedAt: jsonDate(completedAt),
+        goalCompleted
+      },
+      metadata: {
+        milestoneTitle: milestone.title,
+        goalTitle: milestone.goal.title
+      },
       message: `${milestone.title} was completed for ${milestone.goal.title}.`
     },
     notification: {
@@ -536,9 +613,21 @@ export async function createGoalAction(_: FormState, formData: FormData): Promis
   await logActivity({
     householdId: household.id,
     userId: user.id,
+    goalId: goal.id,
     eventType: "goal.created",
     entityType: "goal",
     entityId: goal.id,
+    action: "created",
+    newValue: {
+      title: goal.title,
+      status: goal.status,
+      pillarName: pillar.name
+    },
+    metadata: {
+      goalTitle: goal.title,
+      pillarName: pillar.name,
+      isShared: goal.isShared
+    },
     message: `${goal.title} was added under ${pillar.name}.`,
     notification: goal.isShared
       ? {
@@ -609,6 +698,12 @@ export async function updateGoalAction(_: FormState, formData: FormData): Promis
   const changes = changedGoalFields(existingGoal, payload);
   const changedFieldNames = Object.keys(changes);
   const statusChanged = Boolean(changes.status);
+  const goalOldValue = Object.fromEntries(
+    Object.entries(changes).map(([field, change]) => [field, change.oldValue])
+  );
+  const goalNewValue = Object.fromEntries(
+    Object.entries(changes).map(([field, change]) => [field, change.newValue])
+  );
 
   await prisma.$transaction(async (tx) => {
     await tx.goal.update({
@@ -638,10 +733,23 @@ export async function updateGoalAction(_: FormState, formData: FormData): Promis
       activity: {
         householdId: household.id,
         userId: user.id,
+        goalId: existingGoal.id,
         eventType: "goal.updated",
         entityType: "goal",
         entityId: existingGoal.id,
-        message: `${payload.title} was updated.`
+        action: statusChanged ? "status_changed" : "updated",
+        oldValue: goalOldValue as Prisma.InputJsonValue,
+        newValue: goalNewValue as Prisma.InputJsonValue,
+        metadata: {
+          changedFields: changedFieldNames,
+          previousTitle: existingGoal.title,
+          newTitle: payload.title
+        },
+        message: statusChanged
+          ? `${payload.title} moved from ${humanizeStatus(existingGoal.status)} to ${humanizeStatus(
+              payload.status
+            )}.`
+          : `${payload.title} was updated.`
       },
       notification: changedFieldNames.length
         ? payload.isShared === "true" || payload.status === GoalStatus.COMPLETED
@@ -726,9 +834,21 @@ export async function createDecisionLogAction(
       activity: {
         householdId: household.id,
         userId: user.id,
+        goalId: goal.id,
         eventType: "decision-log.created",
         entityType: "decision-log",
         entityId: created.id,
+        action: "created",
+        newValue: {
+          title: created.title,
+          category: created.category,
+          status: created.status,
+          reviewDate: jsonDate(created.reviewDate)
+        },
+        metadata: {
+          goalTitle: goal.title,
+          decisionTitle: created.title
+        },
         message: `Decision logged for ${goal.title}: ${created.title}.`
       },
       notification: goal.isShared
@@ -812,9 +932,40 @@ export async function updateDecisionLogAction(
       activity: {
         householdId: household.id,
         userId: user.id,
+        goalId: existingDecisionLog.goal.id,
         eventType: "decision-log.updated",
         entityType: "decision-log",
         entityId: existingDecisionLog.id,
+        action: "updated",
+        oldValue: {
+          title: existingDecisionLog.title,
+          category: existingDecisionLog.category,
+          status: existingDecisionLog.status,
+          decision: existingDecisionLog.decision,
+          reason: existingDecisionLog.reason,
+          reviewDate: jsonDate(existingDecisionLog.reviewDate)
+        },
+        newValue: {
+          title: payload.title,
+          category: payload.category,
+          status: payload.status,
+          decision: payload.decision,
+          reason: payload.reason,
+          reviewDate: jsonDate(toOptionalDate(payload.reviewDate))
+        },
+        metadata: {
+          goalTitle: existingDecisionLog.goal.title,
+          changedFields: summarizeChangedKeys({
+            title: existingDecisionLog.title !== payload.title,
+            category: existingDecisionLog.category !== payload.category,
+            status: existingDecisionLog.status !== payload.status,
+            decision: existingDecisionLog.decision !== payload.decision,
+            reason: existingDecisionLog.reason !== payload.reason,
+            reviewDate:
+              jsonDate(existingDecisionLog.reviewDate) !==
+              jsonDate(toOptionalDate(payload.reviewDate))
+          })
+        },
         message: `Decision updated for ${existingDecisionLog.goal.title}: ${payload.title}.`
       },
       notification: existingDecisionLog.goal.isShared
@@ -879,9 +1030,21 @@ export async function archiveDecisionLogAction(formData: FormData) {
       activity: {
         householdId: household.id,
         userId: user.id,
+        goalId: decisionLog.goal.id,
         eventType: "decision-log.archived",
         entityType: "decision-log",
         entityId: decisionLog.id,
+        action: "archived",
+        oldValue: {
+          status: decisionLog.status
+        },
+        newValue: {
+          status: "archived"
+        },
+        metadata: {
+          goalTitle: decisionLog.goal.title,
+          decisionTitle: decisionLog.title
+        },
         message: `Decision archived for ${decisionLog.goal.title}: ${decisionLog.title}.`
       },
       notification: decisionLog.goal.isShared
@@ -925,12 +1088,14 @@ export async function applySuggestedNextMoveAction(formData: FormData) {
     return;
   }
 
+  const nextBlocker = payload.category === "blocked_goal" ? goal.blocker : null;
+
   await prisma.$transaction(async (tx) => {
     await tx.goal.update({
       where: { id: goal.id },
       data: {
         nextAction: payload.suggestion,
-        blocker: payload.category === "blocked_goal" ? goal.blocker : null
+        blocker: nextBlocker
       }
     });
 
@@ -938,9 +1103,23 @@ export async function applySuggestedNextMoveAction(formData: FormData) {
       data: {
         householdId: household.id,
         userId: user.id,
+        goalId: goal.id,
         eventType: "next-step.applied",
         entityType: "goal",
         entityId: goal.id,
+        action: "applied",
+        oldValue: {
+          nextAction: goal.nextAction,
+          blocker: goal.blocker
+        },
+        newValue: {
+          nextAction: payload.suggestion,
+          blocker: nextBlocker
+        },
+        metadata: {
+          category: payload.category,
+          source: "next_step_engine"
+        },
         message: `Recommended next move was applied to ${goal.title}: ${payload.suggestion}`
       }
     });
@@ -981,15 +1160,15 @@ export async function editAndApplySuggestedNextMoveAction(
   }
 
   const editedBlocker = emptyToNull(payload.blocker);
+  const nextBlocker =
+    editedBlocker ?? (payload.category === "blocked_goal" ? goal.blocker : null);
 
   await prisma.$transaction(async (tx) => {
     await tx.goal.update({
       where: { id: goal.id },
       data: {
         nextAction: payload.nextAction,
-        blocker:
-          editedBlocker ??
-          (payload.category === "blocked_goal" ? goal.blocker : null)
+        blocker: nextBlocker
       }
     });
 
@@ -997,9 +1176,23 @@ export async function editAndApplySuggestedNextMoveAction(
       data: {
         householdId: household.id,
         userId: user.id,
+        goalId: goal.id,
         eventType: "next-step.edited-applied",
         entityType: "goal",
         entityId: goal.id,
+        action: "edited_applied",
+        oldValue: {
+          nextAction: goal.nextAction,
+          blocker: goal.blocker
+        },
+        newValue: {
+          nextAction: payload.nextAction,
+          blocker: nextBlocker
+        },
+        metadata: {
+          category: payload.category,
+          source: "next_step_engine"
+        },
         message: `Edited recommended next move was applied to ${goal.title}: ${payload.nextAction}`
       }
     });
@@ -1099,9 +1292,24 @@ export async function updateGoalProgressAction(
       activity: {
         householdId: household.id,
         userId: user.id,
+        goalId: goal.id,
         eventType: "goal.progress-updated",
         entityType: "goal",
         entityId: goal.id,
+        action: "progress_updated",
+        oldValue: {
+          currentValue: goal.currentValue,
+          progress: previousProgress
+        },
+        newValue: {
+          currentValue: newValue,
+          progress: nextProgress
+        },
+        metadata: {
+          reachedThreshold: reachedThreshold ?? null,
+          progressLogId: progressLog.id,
+          note: emptyToNull(payload.note)
+        },
         message:
           goal.goalType === GoalType.CHECKLIST
             ? `${goal.title} received a progress note.`
@@ -1216,9 +1424,19 @@ export async function createMilestoneAction(
   await logActivity({
     householdId: household.id,
     userId: user.id,
+    goalId: goal.id,
     eventType: "milestone.created",
     entityType: "milestone",
     entityId: milestone.id,
+    action: "created",
+    newValue: {
+      title: milestone.title,
+      status: milestone.status
+    },
+    metadata: {
+      goalTitle: goal.title,
+      milestoneTitle: milestone.title
+    },
     message: `A milestone was added to ${goal.title}: ${milestone.title}.`,
     notification: goal.isShared
       ? {
@@ -1341,9 +1559,41 @@ export async function updateMilestoneAction(
       activity: {
         householdId: household.id,
         userId: user.id,
+        goalId: milestone.goal.id,
         eventType: "milestone.updated",
         entityType: "milestone",
         entityId: milestone.id,
+        action: "updated",
+        oldValue: {
+          title: milestone.title,
+          description: milestone.description,
+          status: milestone.status,
+          decisionSummary: milestone.decisionSummary,
+          notes: milestone.notes,
+          completedAt: jsonDate(milestone.completedAt)
+        },
+        newValue: {
+          title: payload.title,
+          description: emptyToNull(payload.description),
+          status: payload.status,
+          decisionSummary: emptyToNull(payload.decisionSummary),
+          notes: emptyToNull(payload.notes),
+          completedAt: jsonDate(completedAt)
+        },
+        metadata: {
+          goalTitle: milestone.goal.title,
+          changedFields: summarizeChangedKeys({
+            title: milestone.title !== payload.title,
+            description: (milestone.description ?? null) !== emptyToNull(payload.description),
+            status: milestone.status !== payload.status,
+            decisionSummary:
+              (milestone.decisionSummary ?? null) !== emptyToNull(payload.decisionSummary),
+            notes: (milestone.notes ?? null) !== emptyToNull(payload.notes),
+            links: JSON.stringify(milestone.links ?? []) !== JSON.stringify(links),
+            customFields:
+              JSON.stringify(milestone.customFields ?? {}) !== JSON.stringify(customFields)
+          })
+        },
         message: `${payload.title} details were updated for ${milestone.goal.title}.`
       },
       notification: milestone.goal.isShared
@@ -1469,6 +1719,17 @@ export async function createWeeklyReviewAction(
     eventType: "weekly-review.created",
     entityType: "weekly-review",
     entityId: review.id,
+    action: "created",
+    newValue: {
+      weekStartDate: review.weekStartDate.toISOString(),
+      wins: review.wins,
+      stuckPoints: review.stuckPoints,
+      focusNextWeek: review.focusNextWeek,
+      cutOrPause: review.cutOrPause
+    },
+    metadata: {
+      weekStartDate: payload.weekStartDate
+    },
     message: `Weekly review for ${payload.weekStartDate} was captured.`
   });
 
@@ -1546,9 +1807,20 @@ export async function createCommentAction(
       activity: {
         householdId: household.id,
         userId: user.id,
+        goalId: target.goal.id,
         eventType: "comment.created",
         entityType: "comment",
         entityId: created.id,
+        action: parentCommentId ? "replied" : "created",
+        newValue: {
+          body: created.body,
+          target: target.label
+        },
+        metadata: {
+          goalTitle: target.goal.title,
+          targetLabel: target.label,
+          parentCommentId
+        },
         message: `${user.name} commented on ${target.label}.`
       },
       notification: target.goal.isShared
@@ -1657,9 +1929,21 @@ export async function createReviewRequestAction(
       activity: {
         householdId: household.id,
         userId: user.id,
+        goalId: target.goal.id,
         eventType: "review-request.created",
         entityType: "review-request",
         entityId: created.id,
+        action: "created",
+        newValue: {
+          title: created.title,
+          status: created.status,
+          assignedToUserId: created.assignedToUserId,
+          dueDate: jsonDate(created.dueDate)
+        },
+        metadata: {
+          goalTitle: target.goal.title,
+          targetLabel: target.label
+        },
         message: `${user.name} requested review on ${target.label}.`
       },
       notification: {
@@ -1730,13 +2014,14 @@ export async function resolveReviewRequestAction(formData: FormData) {
         (id): id is string => Boolean(id)
       )
     : [reviewRequest.requestedByUserId];
+  const resolvedAt = new Date();
 
   await prisma.$transaction(async (tx) => {
     await tx.reviewRequest.update({
       where: { id: reviewRequest.id },
       data: {
         status: "resolved",
-        resolvedAt: new Date()
+        resolvedAt
       }
     });
 
@@ -1745,9 +2030,24 @@ export async function resolveReviewRequestAction(formData: FormData) {
       activity: {
         householdId: household.id,
         userId: user.id,
+        goalId: reviewRequest.goalId,
         eventType: "review-request.resolved",
         entityType: "review-request",
         entityId: reviewRequest.id,
+        action: "resolved",
+        oldValue: {
+          status: reviewRequest.status,
+          resolvedAt: jsonDate(reviewRequest.resolvedAt)
+        },
+        newValue: {
+          status: "resolved",
+          resolvedAt: jsonDate(resolvedAt)
+        },
+        metadata: {
+          goalTitle: reviewRequest.goal.title,
+          targetLabel,
+          title: reviewRequest.title
+        },
         message: `${user.name} resolved review request: ${reviewRequest.title}.`
       },
       notification: {

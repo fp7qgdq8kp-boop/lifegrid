@@ -224,6 +224,9 @@ export async function getGoalDetailData(goalId: string) {
       householdId: household.id,
       OR: [
         {
+          goalId: goal.id
+        },
+        {
           entityType: "goal",
           entityId: goal.id
         },

@@ -22,9 +22,14 @@ export type NotificationType = (typeof notificationTypes)[number];
 type ActivityEventInput = {
   householdId: string;
   userId: string | null;
+  goalId?: string | null;
   eventType: string;
   entityType: string;
   entityId: string;
+  action?: string | null;
+  oldValue?: Prisma.InputJsonValue;
+  newValue?: Prisma.InputJsonValue;
+  metadata?: Prisma.InputJsonValue;
   message: string;
   createdAt?: Date;
 };
@@ -209,9 +214,18 @@ export async function ensureDueDecisionReviewNotifications(householdId: string, 
         activity: {
           householdId,
           userId: null,
+          goalId: decisionLog.goalId,
           eventType: "decision-log.review-due",
           entityType: "decision-log",
           entityId: decisionLog.id,
+          action: "review_due",
+          oldValue: {
+            reviewDate: decisionLog.reviewDate?.toISOString() ?? null
+          },
+          metadata: {
+            goalTitle: decisionLog.goal.title,
+            decisionTitle: decisionLog.title
+          },
           message: `A review is due for ${decisionLog.title}.`
         },
         notification: {
