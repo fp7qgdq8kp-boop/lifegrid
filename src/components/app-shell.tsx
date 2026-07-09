@@ -4,7 +4,9 @@ import { SidebarNav } from "@/components/sidebar-nav";
 import { getNotificationShellData } from "@/lib/data";
 
 export async function AppShell({ children }: { children: ReactNode }) {
-  const { unreadNotificationCount } = await getNotificationShellData();
+  const { household, members, unreadNotificationCount, user } =
+    await getNotificationShellData();
+  const householdNames = members.map((member) => member.user.name).join(" + ") || "Jay + Skye";
 
   return (
     <div className="relative min-h-dvh">
@@ -16,20 +18,26 @@ export async function AppShell({ children }: { children: ReactNode }) {
               LifeGrid
             </p>
             <h1 className="mt-3 font-heading text-3xl font-semibold tracking-tight text-white">
-              Build the life on purpose.
+              {householdNames} life board.
             </h1>
             <p className="mt-3 max-w-sm text-sm leading-6 text-slate-300/70">
-              A focused dashboard for goals, blockers, momentum, and the next action that matters.
+              A calm place for shared goals, decisions, blockers, and the next move that matters.
             </p>
           </div>
           <SidebarNav unreadNotificationCount={unreadNotificationCount} />
-          <div className="mt-8 rounded-2xl border border-white/8 bg-white/5 p-4">
+          <div className="mt-8 rounded-2xl border border-white/8 bg-white/[0.045] p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-              Auth Stub
+              Household
             </p>
-            <p className="mt-3 text-sm text-slate-200">
-              Viewer context is seeded from the first household member so real auth can drop in later.
+            <p className="mt-3 text-sm font-medium text-white">{householdNames}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-300/70">
+              {household.name}. Viewing as {user.name}.
             </p>
+            <div className="mt-4 rounded-xl border border-cyan-300/15 bg-cyan-400/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">
+              {unreadNotificationCount
+                ? `${unreadNotificationCount} updates waiting`
+                : "No updates waiting"}
+            </div>
           </div>
         </aside>
         <main className="min-w-0 flex-1">{children}</main>

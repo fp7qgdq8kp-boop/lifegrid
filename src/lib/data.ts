@@ -116,15 +116,27 @@ export async function getNotificationShellData() {
 
   await ensureDueDecisionReviewNotifications(household.id);
 
-  const unreadNotificationCount = await prisma.notification.count({
-    where: {
-      householdId: household.id,
-      userId: user.id,
-      readAt: null
-    }
-  });
+  const [unreadNotificationCount, members] = await Promise.all([
+    prisma.notification.count({
+      where: {
+        householdId: household.id,
+        userId: user.id,
+        readAt: null
+      }
+    }),
+    prisma.householdMember.findMany({
+      where: { householdId: household.id },
+      orderBy: { createdAt: "asc" },
+      include: {
+        user: true
+      }
+    })
+  ]);
 
   return {
+    household,
+    user,
+    members,
     unreadNotificationCount
   };
 }

@@ -17,7 +17,6 @@ import {
   NotebookPen,
   Sparkles,
   Target,
-  TrendingUp,
   Users,
   Wallet
 } from "lucide-react";
@@ -236,7 +235,7 @@ function PillarCard({ pillar }: { pillar: DashboardPillar }) {
             ))
           ) : (
             <div className="rounded-xl border border-dashed border-white/10 bg-slate-950/25 p-3 text-sm leading-6 text-slate-400">
-              No active Bentley Family goal is attached here yet.
+              No active goal here yet.
             </div>
           )}
         </div>
@@ -338,6 +337,10 @@ export default async function DashboardPage() {
   ).length;
   const strongestPillar = [...data.pillars].sort((a, b) => b.progress - a.progress)[0];
   const quietPillars = data.pillars.filter((pillar) => getActiveGoals(pillar).length === 0).length;
+  const primarySuggestedMove = data.suggestedNextMoves[0];
+  const visibleSuggestedMoves = data.suggestedNextMoves.slice(0, 3);
+  const recentWins = data.recentWins.slice(0, 3);
+  const recentActivity = data.activity.slice(0, 5);
 
   return (
     <div className="space-y-6 pb-10">
@@ -349,14 +352,15 @@ export default async function DashboardPage() {
         <div className="relative grid gap-6 xl:grid-cols-[1fr,320px] xl:items-end">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="accent">Bentley Family</Badge>
-              <Badge>{`${data.user.name}'s command view`}</Badge>
+              <Badge variant="accent">Jay + Skye</Badge>
+              <Badge>{data.household.name}</Badge>
             </div>
             <h2 className="mt-5 max-w-3xl font-heading text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-              Life command center
+              Start with the next right move.
             </h2>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-200/80 sm:text-base">
-              A calm operating board for money, home, career, business, family, health, and relationship. The only job here is to keep progress, blockers, and the next useful move visible.
+              A calm shared board for goals, decisions, blockers, and weekly rhythm. Keep it focused,
+              keep it honest, and move one useful thing at a time.
             </p>
 
             <div className="mt-6 flex flex-wrap gap-3">
@@ -400,18 +404,40 @@ export default async function DashboardPage() {
                 </p>
               </div>
             </div>
+            <div className="mt-5 border-t border-white/10 pt-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-100/70">
+                Start here
+              </p>
+              {primarySuggestedMove ? (
+                <Link
+                  href={`/goals/${primarySuggestedMove.goalId}`}
+                  className="mt-3 block rounded-xl border border-cyan-300/15 bg-cyan-400/10 p-3 transition hover:border-cyan-200/30 hover:bg-cyan-400/15"
+                >
+                  <p className="text-sm font-medium leading-6 text-white">
+                    {primarySuggestedMove.suggestion}
+                  </p>
+                  <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100/70">
+                    {primarySuggestedMove.goalTitle}
+                  </p>
+                </Link>
+              ) : (
+                <p className="mt-3 rounded-xl border border-emerald-300/15 bg-emerald-400/10 p-3 text-sm leading-6 text-emerald-50/80">
+                  No urgent move is waiting. Use the weekly review to choose the next focus.
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <CommandMetric
-          label="Suggested moves"
-          value={String(data.suggestedNextMoves.length)}
+          label="Top moves"
+          value={String(visibleSuggestedMoves.length)}
           detail={
             activeGoalsWithNoNextAction
               ? `${activeGoalsWithNoNextAction} goals need a next move.`
-              : "Rule checks are keeping the next move visible."
+              : "Only the clearest next moves are shown here."
           }
           tone={activeGoalsWithNoNextAction ? "warning" : "success"}
           icon={Target}
@@ -453,7 +479,7 @@ export default async function DashboardPage() {
               Pillars
             </p>
             <h3 className="mt-2 font-heading text-2xl font-semibold text-white">
-              Seven lanes, one operating system
+              Life areas at a glance
             </h3>
           </div>
           <p className="max-w-xl text-sm leading-6 text-slate-400">
@@ -476,10 +502,10 @@ export default async function DashboardPage() {
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <Target className="h-5 w-5 text-cyan-100" />
-                  Suggested Next Moves
+                  Next three moves
                 </CardTitle>
                 <CardDescription>
-                  Goal rules and weekly review signals translated into action.
+                  Kept short on purpose so the board stays easy to use.
                 </CardDescription>
               </div>
               <Button variant="ghost" size="sm" asChild>
@@ -491,8 +517,8 @@ export default async function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-3 pt-6">
-            {data.suggestedNextMoves.length ? (
-              data.suggestedNextMoves.map((suggestedMove, index) => (
+            {visibleSuggestedMoves.length ? (
+              visibleSuggestedMoves.map((suggestedMove, index) => (
                 <SuggestedMoveCard
                   key={`${suggestedMove.goalId}-${suggestedMove.category}-${index}`}
                   suggestedMove={suggestedMove}
@@ -502,7 +528,7 @@ export default async function DashboardPage() {
             ) : (
               <EmptyState
                 title="No suggested moves right now"
-                description="Active goals with blockers, stale updates, missing progress, or deadline risk will appear here."
+                description="If the board is quiet, use the weekly review to choose one focus."
               />
             )}
           </CardContent>
@@ -549,9 +575,9 @@ export default async function DashboardPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
-              {data.recentWins.length ? (
+              {recentWins.length ? (
                 <ActivityFeed
-                  events={data.recentWins}
+                  events={recentWins}
                   emptyTitle="No wins yet"
                   emptyDescription="Complete a milestone or save a weekly review to seed this area."
                 />
@@ -649,33 +675,9 @@ export default async function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent className="pt-6">
-            <ActivityFeed events={data.activity} />
+            <ActivityFeed events={recentActivity} />
           </CardContent>
         </Card>
-      </section>
-
-      <section className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border border-white/8 bg-white/[0.035] p-5">
-          <TrendingUp className="h-5 w-5 text-cyan-100" />
-          <p className="mt-4 font-medium text-white">Balance the board</p>
-          <p className="mt-2 text-sm leading-6 text-slate-400">
-            Keep all seven Bentley Family pillars visible so life does not collapse into whichever fire is loudest.
-          </p>
-        </div>
-        <div className="rounded-2xl border border-white/8 bg-white/[0.035] p-5">
-          <Target className="h-5 w-5 text-cyan-100" />
-          <p className="mt-4 font-medium text-white">Force the next move</p>
-          <p className="mt-2 text-sm leading-6 text-slate-400">
-            Every active goal should answer one question quickly: what is the next concrete action?
-          </p>
-        </div>
-        <div className="rounded-2xl border border-white/8 bg-white/[0.035] p-5">
-          <NotebookPen className="h-5 w-5 text-cyan-100" />
-          <p className="mt-4 font-medium text-white">Review weekly</p>
-          <p className="mt-2 text-sm leading-6 text-slate-400">
-            The weekly review turns progress into memory, then memory into a better plan.
-          </p>
-        </div>
       </section>
     </div>
   );

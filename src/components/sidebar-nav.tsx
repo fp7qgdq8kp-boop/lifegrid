@@ -15,12 +15,12 @@ import { navigation } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 const iconMap = {
-  Dashboard: LayoutDashboard,
-  "Life Pillars": Compass,
+  Home: LayoutDashboard,
+  Pillars: Compass,
   Goals: Target,
-  "Weekly Review": NotebookPen,
-  Notifications: Bell,
-  Activity
+  Review: NotebookPen,
+  Updates: Bell,
+  History: Activity
 };
 
 export function SidebarNav({ unreadNotificationCount = 0 }: { unreadNotificationCount?: number }) {
@@ -52,7 +52,7 @@ export function SidebarNav({ unreadNotificationCount = 0 }: { unreadNotification
                 )}
               >
                 <Icon className="h-4 w-4" />
-                {item.label === "Notifications" && unreadNotificationCount > 0 ? (
+                {item.href === "/notifications" && unreadNotificationCount > 0 ? (
                   <span className="absolute -right-1 -top-1 min-w-5 rounded-full border border-slate-950 bg-cyan-300 px-1.5 py-0.5 text-center text-[10px] font-bold leading-none text-slate-950">
                     {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
                   </span>
@@ -60,7 +60,9 @@ export function SidebarNav({ unreadNotificationCount = 0 }: { unreadNotification
               </div>
               <div>
                 <p className="text-sm font-semibold">{item.label}</p>
-                <p className="text-xs text-slate-400 group-hover:text-slate-300">{item.description}</p>
+                <p className="text-xs text-slate-400 group-hover:text-slate-300">
+                  {item.description}
+                </p>
               </div>
             </div>
           </Link>

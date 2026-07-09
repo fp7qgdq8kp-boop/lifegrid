@@ -129,12 +129,12 @@ export const notificationTypeOptions = [
 ] as const;
 
 export const navigation = [
-  { href: "/", label: "Dashboard", description: "Life progress at a glance" },
-  { href: "/pillars", label: "Life Pillars", description: "See momentum by domain" },
-  { href: "/goals", label: "Goals", description: "Manage active work" },
-  { href: "/weekly-review", label: "Weekly Review", description: "Capture wins and friction" },
-  { href: "/notifications", label: "Notifications", description: "Meaningful updates" },
-  { href: "/activity", label: "Activity", description: "Timeline of movement" }
+  { href: "/", label: "Home", description: "Start here" },
+  { href: "/goals", label: "Goals", description: "Plans and next moves" },
+  { href: "/pillars", label: "Pillars", description: "Life areas" },
+  { href: "/weekly-review", label: "Review", description: "Weekly reset" },
+  { href: "/notifications", label: "Updates", description: "Needs attention" },
+  { href: "/activity", label: "History", description: "What changed" }
 ] as const;
 
 export const pillarIconMap: Record<string, string> = {
