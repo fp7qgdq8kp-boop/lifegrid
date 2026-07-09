@@ -8,9 +8,8 @@ RUN apk add --no-cache libc6-compat openssl
 FROM base AS deps
 
 COPY package.json package-lock.json ./
-COPY prisma ./prisma
 
-RUN npm ci
+RUN npm ci --no-audit --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
 
 FROM base AS builder
 
