@@ -7,6 +7,7 @@ import {
   updateNotificationPreferencesAction
 } from "@/actions/lifegrid";
 import { EmptyState } from "@/components/empty-state";
+import { PushNotificationPanel } from "@/components/push-notification-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -167,8 +168,14 @@ function NotificationPreferencePanel({
 }
 
 export default async function NotificationsPage() {
-  const { notifications, unreadNotificationCount, notificationPreferences } =
+  const {
+    notifications,
+    unreadNotificationCount,
+    notificationPreferences,
+    activePushSubscriptionCount
+  } =
     await getNotificationsPageData();
+  const webPushPublicKey = process.env.WEB_PUSH_PUBLIC_KEY || null;
 
   return (
     <div className="space-y-6 pb-10">
@@ -194,6 +201,11 @@ export default async function NotificationsPage() {
           </div>
         </div>
       </section>
+
+      <PushNotificationPanel
+        publicKey={webPushPublicKey}
+        activeSubscriptionCount={activePushSubscriptionCount}
+      />
 
       <NotificationPreferencePanel preferences={notificationPreferences} />
 

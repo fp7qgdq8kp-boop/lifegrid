@@ -367,37 +367,45 @@ export async function getNotificationsPageData() {
 
   await ensureDueDecisionReviewNotifications(household.id);
 
-  const [notifications, unreadNotificationCount, preferences] = await Promise.all([
-    prisma.notification.findMany({
-      where: {
-        householdId: household.id,
-        userId: user.id
-      },
-      orderBy: [
-        {
-          readAt: "asc"
+  const [notifications, unreadNotificationCount, preferences, activePushSubscriptionCount] =
+    await Promise.all([
+      prisma.notification.findMany({
+        where: {
+          householdId: household.id,
+          userId: user.id
         },
-        {
-          createdAt: "desc"
+        orderBy: [
+          {
+            readAt: "asc"
+          },
+          {
+            createdAt: "desc"
+          }
+        ],
+        take: 60,
+        include: notificationArgs.include
+      }),
+      prisma.notification.count({
+        where: {
+          householdId: household.id,
+          userId: user.id,
+          readAt: null
         }
-      ],
-      take: 60,
-      include: notificationArgs.include
-    }),
-    prisma.notification.count({
-      where: {
-        householdId: household.id,
-        userId: user.id,
-        readAt: null
-      }
-    }),
-    prisma.notificationPreference.findMany({
-      where: {
-        householdId: household.id,
-        userId: user.id
-      }
-    })
-  ]);
+      }),
+      prisma.notificationPreference.findMany({
+        where: {
+          householdId: household.id,
+          userId: user.id
+        }
+      }),
+      prisma.pushSubscription.count({
+        where: {
+          householdId: household.id,
+          userId: user.id,
+          disabledAt: null
+        }
+      })
+    ]);
   const preferenceByType = new Map(
     preferences.map((preference) => [preference.type, preference])
   );
@@ -414,6 +422,7 @@ export async function getNotificationsPageData() {
         emailEnabled: preference?.emailEnabled ?? false,
         pushEnabled: preference?.pushEnabled ?? false
       };
-    })
+    }),
+    activePushSubscriptionCount
   };
 }
