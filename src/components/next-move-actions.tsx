@@ -57,21 +57,21 @@ export function NextMoveActions({
         <input type="hidden" name="suggestion" value={suggestion} />
         <input type="hidden" name="category" value={category} />
         <Button type="submit" size="sm">
-          Use this next move
+          Do this next
         </Button>
       </form>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
           <Button type="button" variant="secondary" size="sm">
-            Edit first
+            Change step
           </Button>
         </DialogTrigger>
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>Edit next move</DialogTitle>
+            <DialogTitle>Change this step</DialogTitle>
             <DialogDescription>
-              Tune the recommendation before making it the goal&apos;s next action.
+              Adjust the wording before making it the plan&apos;s next action.
             </DialogDescription>
           </DialogHeader>
 
