@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 
 import { notificationTypeValues } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
+import { schedulePushDeliveryForActivityEvent } from "@/lib/web-push";
 
 export const notificationTypes = notificationTypeValues;
 
@@ -182,6 +183,7 @@ export async function createActivityEventWithNotifications({
     })),
     skipDuplicates: true
   });
+  schedulePushDeliveryForActivityEvent(activityEvent.id);
 
   return activityEvent;
 }
