@@ -84,9 +84,9 @@ export function GoalFormDialog({
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{goal ? "Edit goal" : "Create a new goal"}</DialogTitle>
+          <DialogTitle>{goal ? "Edit plan" : "Create a new plan"}</DialogTitle>
           <DialogDescription>
-            Keep goals concrete, calm, and connected to the next visible move.
+            Keep plans concrete, calm, and connected to the next visible move.
           </DialogDescription>
         </DialogHeader>
         <form action={formAction} className="space-y-5">
@@ -114,7 +114,7 @@ export function GoalFormDialog({
 
             <div className="grid gap-5 md:grid-cols-2">
               <div>
-                <Label htmlFor="pillarId">Pillar</Label>
+                <Label htmlFor="pillarId">Life area</Label>
                 <select
                   id="pillarId"
                   name="pillarId"
@@ -166,7 +166,7 @@ export function GoalFormDialog({
               </summary>
               <div className="mt-5 grid gap-5 md:grid-cols-2">
                 <div>
-                  <Label htmlFor="goalType">Goal type</Label>
+                  <Label htmlFor="goalType">Plan type</Label>
                   <select
                     id="goalType"
                     name="goalType"
@@ -233,7 +233,7 @@ export function GoalFormDialog({
                     <div className="rounded-2xl border border-cyan-400/15 bg-cyan-400/10 p-4 text-sm text-cyan-100 md:col-span-2">
                       {goalType === "CHECKLIST"
                         ? "Checklist progress comes from milestones."
-                        : "Recurring goals stay focused on rhythm and next action."}
+                        : "Recurring plans stay focused on rhythm and next action."}
                     </div>
                   </>
                 )}
@@ -282,7 +282,7 @@ export function GoalFormDialog({
 
           <div className="flex justify-end">
             <Button type="submit" disabled={pending}>
-              {pending ? "Saving..." : goal ? "Save changes" : "Create goal"}
+              {pending ? "Saving..." : goal ? "Save changes" : "Create plan"}
             </Button>
           </div>
         </form>

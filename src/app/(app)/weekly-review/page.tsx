@@ -42,7 +42,7 @@ function WeeklyReviewMoveCard({ move }: { move: WeeklyReviewNextMove }) {
         />
         <Button variant="ghost" size="sm" asChild>
           <Link href={`/goals/${move.goalId}`}>
-            Open goal
+            Open plan
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </Button>
@@ -59,13 +59,14 @@ export default async function WeeklyReviewPage() {
     <div className="space-y-6 pb-10">
       <section className="rounded-[2rem] border border-white/8 bg-slate-950/70 p-6 shadow-panel">
         <p className="text-xs font-semibold uppercase tracking-[0.34em] text-cyan-200/70">
-          Weekly review
+          Weekly check-in
         </p>
         <h2 className="mt-3 font-heading text-4xl font-semibold text-white">
           Turn the week into signal.
         </h2>
         <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300/75">
-          Reviews help the system stay honest: what moved, what got stuck, where focus goes next, and what should stop taking up oxygen.
+          Check-ins help the system stay honest: what moved, what got stuck, where focus goes
+          next, and what should stop taking up oxygen.
         </p>
       </section>
 
@@ -74,7 +75,7 @@ export default async function WeeklyReviewPage() {
           <CardHeader>
             <CardTitle>Capture this week</CardTitle>
             <CardDescription>
-              The review doubles as a reset ritual and a data point for the timeline.
+              The check-in doubles as a reset ritual and a data point for the timeline.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -90,7 +91,7 @@ export default async function WeeklyReviewPage() {
                 Suggested moves for next week
               </CardTitle>
               <CardDescription>
-                The latest review translated into concrete goal actions.
+                The latest check-in translated into concrete plan actions.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 pt-6">
@@ -103,8 +104,8 @@ export default async function WeeklyReviewPage() {
                 ))
               ) : (
                 <EmptyState
-                  title="No review-based moves yet"
-                  description="Save a weekly review and LifeGrid will turn its focus, friction, and cut-or-pause notes into suggested goal actions."
+                  title="No check-in moves yet"
+                  description="Save a weekly check-in and LifeGrid will turn its focus, friction, and cut-or-pause notes into suggested plan actions."
                 />
               )}
             </CardContent>
@@ -112,7 +113,7 @@ export default async function WeeklyReviewPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Stuck goals to review</CardTitle>
+              <CardTitle>Plans needing attention</CardTitle>
               <CardDescription>
                 Bring these into the conversation so they do not drift quietly.
               </CardDescription>
@@ -137,7 +138,7 @@ export default async function WeeklyReviewPage() {
                 </div>
               ) : (
                 <EmptyState
-                  title="No stuck goals right now"
+                  title="No stuck plans right now"
                   description="If blockers or missing next actions surface later, they will show here."
                 />
               )}
@@ -146,7 +147,7 @@ export default async function WeeklyReviewPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Previous reviews</CardTitle>
+              <CardTitle>Previous check-ins</CardTitle>
               <CardDescription>Browse the recent narrative of wins, friction, and focus.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -180,8 +181,8 @@ export default async function WeeklyReviewPage() {
                 </div>
               ) : (
                 <EmptyState
-                  title="No reviews saved yet"
-                  description="The first review creates a useful baseline for future weeks."
+                  title="No check-ins saved yet"
+                  description="The first check-in creates a useful baseline for future weeks."
                 />
               )}
             </CardContent>

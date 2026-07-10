@@ -194,7 +194,7 @@ export default async function GoalDetailPage({
           <Button variant="ghost" size="sm" asChild>
             <Link href="/goals">
               <ChevronLeft className="h-4 w-4" />
-              Back to goals
+              Back to plans
             </Link>
           </Button>
 
@@ -211,7 +211,7 @@ export default async function GoalDetailPage({
               </h2>
               <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-200/80 sm:text-base">
                 {goal.description ||
-                  "No description yet. This goal still needs a crisp explanation of why it matters and what good looks like."}
+                  "No description yet. This plan still needs a crisp explanation of why it matters and what good looks like."}
               </p>
             </div>
 
@@ -232,7 +232,7 @@ export default async function GoalDetailPage({
                 <GoalFormDialog
                   pillars={pillars.map((pillar) => ({ id: pillar.id, name: pillar.name }))}
                   goal={goal}
-                  triggerLabel="Edit Goal"
+                  triggerLabel="Edit Plan"
                   triggerVariant="outline"
                 />
               </div>
@@ -258,7 +258,7 @@ export default async function GoalDetailPage({
       </section>
 
       <nav
-        aria-label="Goal sections"
+        aria-label="Plan sections"
         className="rounded-2xl border border-white/8 bg-slate-950/70 p-3 shadow-panel"
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -288,10 +288,10 @@ export default async function GoalDetailPage({
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Target className="h-5 w-5 text-cyan-100" />
-                Recommended Next Move
+                Recommended next move
               </CardTitle>
               <CardDescription>
-                The top rule-based suggestion for this goal.
+                The top rule-based suggestion for this plan.
               </CardDescription>
             </div>
             {recommendedNextMove ? (
@@ -327,7 +327,7 @@ export default async function GoalDetailPage({
             <div className="rounded-2xl border border-emerald-300/15 bg-emerald-400/10 p-5">
               <p className="font-medium text-white">No rule-based recommendation is firing.</p>
               <p className="mt-2 text-sm leading-6 text-emerald-50/75">
-                This goal has no blocker, deadline risk, stale update, or missing setup signal
+                This plan has no blocker, deadline risk, stale update, or missing setup signal
                 right now.
               </p>
             </div>
@@ -347,7 +347,7 @@ export default async function GoalDetailPage({
                 Next action and blocker
               </CardTitle>
               <CardDescription>
-                The pair that decides whether this goal can move this week.
+                The pair that decides whether this plan can move this week.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 pt-6 md:grid-cols-2">
@@ -623,10 +623,10 @@ export default async function GoalDetailPage({
                   </CardTitle>
                   <CardDescription>
                     A log of choices, research notes, rejected options, and review points for this
-                    goal.
+                    plan.
                   </CardDescription>
                 </div>
-                <DecisionLogFormDialog goalId={goal.id} triggerLabel="Add Decision" />
+                <DecisionLogFormDialog goalId={goal.id} triggerLabel="Add decision" />
               </div>
             </CardHeader>
             <CardContent className="space-y-4 pt-6">
@@ -716,7 +716,7 @@ export default async function GoalDetailPage({
               ) : (
                 <EmptyState
                   title="No decisions logged yet"
-                  description="Use Add Decision to capture the first major choice, research note, rejected option, or lesson for this goal."
+                  description="Use Add decision to capture the first major choice, research note, rejected option, or lesson for this plan."
                 />
               )}
             </CardContent>
@@ -824,7 +824,7 @@ export default async function GoalDetailPage({
               ) : (
                 <EmptyState
                   title="No milestones yet"
-                  description="Milestones will hold decisions, notes, references, and outcomes for this goal."
+                  description="Milestones will hold decisions, notes, references, and outcomes for this plan."
                 />
               )}
             </CardContent>
@@ -859,7 +859,7 @@ export default async function GoalDetailPage({
             ) : (
               <EmptyState
                 title="No progress logs yet"
-                description="Use Update Progress to log the next movement on this goal."
+                description="Use Log update to capture the next movement on this plan."
               />
             )}
           </CollapsibleGoalSection>
@@ -868,7 +868,7 @@ export default async function GoalDetailPage({
         <div className="space-y-6">
           <CollapsibleGoalSection
             id="snapshot"
-            title="Goal details"
+            title="Plan details"
             description="Current value, deadline, owner, and sharing state."
             icon={<Flag className="h-5 w-5 text-cyan-100" />}
           >
@@ -929,13 +929,13 @@ export default async function GoalDetailPage({
           <CollapsibleGoalSection
             id="activity"
             title="Recent activity"
-            description="Open this when you want the full change trail for this goal."
+            description="Open this when you want the full change trail for this plan."
             icon={<ListChecks className="h-5 w-5 text-cyan-100" />}
             badge={activity.length ? <Badge>{activity.length} events</Badge> : null}
           >
             <ActivityFeed
               events={activity}
-              emptyTitle="No activity for this goal yet"
+              emptyTitle="No activity for this plan yet"
               emptyDescription="Updates and milestone movement will appear here."
             />
           </CollapsibleGoalSection>

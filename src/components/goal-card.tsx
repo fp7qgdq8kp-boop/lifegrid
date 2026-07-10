@@ -61,7 +61,7 @@ export function GoalCard({ goal }: { goal: GoalCardData }) {
           <p className="line-clamp-2 text-sm leading-6 text-slate-300/70">{goal.description}</p>
         ) : (
           <p className="text-sm leading-6 text-slate-400">
-            No description yet. Keep the goal sharp and actionable.
+            No description yet. Keep the plan sharp and actionable.
           </p>
         )}
 

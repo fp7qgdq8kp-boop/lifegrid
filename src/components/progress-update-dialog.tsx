@@ -51,13 +51,13 @@ export function ProgressUpdateDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="secondary">Update Progress</Button>
+        <Button variant="secondary">Log update</Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Log movement</DialogTitle>
           <DialogDescription>
-            Record the latest progress and keep the next action current.
+            Record what changed and keep the next action current.
           </DialogDescription>
         </DialogHeader>
         <form action={formAction} className="space-y-5">

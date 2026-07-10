@@ -16,9 +16,9 @@ import { cn } from "@/lib/utils";
 
 const iconMap = {
   Home: LayoutDashboard,
-  Pillars: Compass,
-  Goals: Target,
-  Review: NotebookPen,
+  "Life areas": Compass,
+  Plans: Target,
+  "Check-in": NotebookPen,
   Updates: Bell,
   History: Activity
 };

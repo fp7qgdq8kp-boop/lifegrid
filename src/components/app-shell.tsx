@@ -21,7 +21,7 @@ export async function AppShell({ children }: { children: ReactNode }) {
               {householdNames} life board.
             </h1>
             <p className="mt-3 max-w-sm text-sm leading-6 text-slate-300/70">
-              A calm place for shared goals, decisions, blockers, and the next move that matters.
+              A calm place for shared plans, decisions, blockers, and the next move that matters.
             </p>
           </div>
           <SidebarNav unreadNotificationCount={unreadNotificationCount} />

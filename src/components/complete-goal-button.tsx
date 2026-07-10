@@ -17,10 +17,10 @@ export function CompleteGoalButton({
 }) {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     const message = openMilestoneCount
-      ? `Mark this goal complete? This will also complete ${openMilestoneCount} open milestone${
+      ? `Mark this plan complete? This will also complete ${openMilestoneCount} open milestone${
           openMilestoneCount === 1 ? "" : "s"
         }.`
-      : "Mark this goal complete?";
+      : "Mark this plan complete?";
 
     if (!window.confirm(message)) {
       event.preventDefault();
@@ -41,7 +41,7 @@ export function CompleteGoalButton({
       <input type="hidden" name="goalId" value={goalId} />
       <Button type="submit" variant="secondary" className="w-full">
         <CheckCircle2 className="h-4 w-4" />
-        Mark Complete
+        Mark complete
       </Button>
     </form>
   );

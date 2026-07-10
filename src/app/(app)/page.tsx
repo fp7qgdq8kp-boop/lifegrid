@@ -266,7 +266,7 @@ export default async function DashboardPage() {
               ) : (
                 <EmptyState
                   title="No extra moves right now"
-                  description="LifeGrid will surface more once plans have blockers, reviews, decisions, or stale next steps."
+                  description="LifeGrid will surface more once plans have blockers, check-ins, decisions, or stale next steps."
                 />
               )}
             </CardContent>

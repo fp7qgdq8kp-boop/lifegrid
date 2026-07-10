@@ -26,13 +26,13 @@ export default async function GoalsPage() {
         <div className="relative flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="accent">Goals</Badge>
+              <Badge variant="accent">Plans</Badge>
               <Badge>{activeCount} active</Badge>
               <Badge variant="success">{completedCount} complete</Badge>
               {attentionCount ? <Badge variant="warning">{attentionCount} need attention</Badge> : null}
             </div>
             <h2 className="mt-5 max-w-3xl font-heading text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-              Goals, without the clutter.
+              Plans, without the clutter.
             </h2>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-200/80 sm:text-base">
               A simple list of what Jay and Skye are moving, grouped by life area.
@@ -40,7 +40,7 @@ export default async function GoalsPage() {
           </div>
           <GoalFormDialog
             pillars={pillars.map((pillar) => ({ id: pillar.id, name: pillar.name }))}
-            triggerLabel="Create Goal"
+            triggerLabel="Create Plan"
           />
         </div>
       </section>
@@ -49,7 +49,7 @@ export default async function GoalsPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-200/70">
-              Goals
+              Plans
             </p>
             <h3 className="mt-2 font-heading text-2xl font-semibold text-white">
               Grouped by life area
@@ -57,7 +57,7 @@ export default async function GoalsPage() {
           </div>
           <div className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.035] px-4 py-3 text-sm text-slate-300">
             <Layers3 className="h-4 w-4 text-cyan-100" />
-            {pillars.length} pillars
+            {pillars.length} life areas
           </div>
         </div>
 
@@ -74,7 +74,7 @@ export default async function GoalsPage() {
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <CardTitle>{pillar.name}</CardTitle>
-                      <Badge variant="accent">{activeGoals.length} goals</Badge>
+                      <Badge variant="accent">{activeGoals.length} plans</Badge>
                       {attentionCount ? (
                         <Badge variant="warning">{attentionCount} need attention</Badge>
                       ) : null}
@@ -92,8 +92,8 @@ export default async function GoalsPage() {
                   </div>
                 ) : (
                   <EmptyState
-                    title="No goals in this pillar yet"
-                    description="When a goal is added to this pillar, it will appear here with progress and next action state."
+                    title="No plans in this life area yet"
+                    description="When this area needs attention, add one plan with a clear next step."
                   />
                 )}
               </CardContent>

@@ -92,7 +92,7 @@ function getChangedFieldLabels(event: ActivityEventWithUser) {
 export function ActivityFeed({
   events,
   emptyTitle = "No activity yet",
-  emptyDescription = "Once goals move, milestones land, or reviews are captured, the timeline will light up here."
+  emptyDescription = "Once plans move, milestones land, or check-ins are captured, the timeline will light up here."
 }: {
   events: ActivityEventWithUser[];
   emptyTitle?: string;

@@ -48,7 +48,7 @@ export function MilestoneFormDialog({
         <DialogHeader>
           <DialogTitle>Add milestone</DialogTitle>
           <DialogDescription>
-            Break this goal into the next visible checkpoint.
+            Break this plan into the next visible checkpoint.
           </DialogDescription>
         </DialogHeader>
         <form action={formAction} className="space-y-5">

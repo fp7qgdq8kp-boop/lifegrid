@@ -17,7 +17,7 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata: Metadata = {
   applicationName: "LifeGrid",
   title: "LifeGrid",
-  description: "A calm, focused command center for meaningful life goals.",
+  description: "A calm, focused command center for meaningful life plans.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,

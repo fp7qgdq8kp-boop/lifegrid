@@ -61,7 +61,7 @@ export function WeeklyReviewForm({ weekStartDate }: { weekStartDate: string }) {
       ) : null}
       <div className="flex justify-end">
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving..." : "Save weekly review"}
+          {pending ? "Saving..." : "Save weekly check-in"}
         </Button>
       </div>
     </form>

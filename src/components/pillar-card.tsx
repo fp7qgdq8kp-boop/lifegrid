@@ -120,7 +120,7 @@ export function PillarCard({ pillar }: { pillar: PillarCardData }) {
 
         <ProgressBar
           value={progress}
-          detail={`${activeGoals.length} active goals`}
+          detail={`${activeGoals.length} active plans`}
           tone={missingNextActions || blockedGoals ? "warning" : "default"}
           className="mt-4"
         />
@@ -157,7 +157,7 @@ export function PillarCard({ pillar }: { pillar: PillarCardData }) {
             ))
           ) : (
             <div className="rounded-xl border border-dashed border-white/10 bg-slate-950/25 p-3 text-sm leading-6 text-slate-400">
-              No active goals in this pillar yet.
+              No active plans in this life area yet.
             </div>
           )}
         </div>

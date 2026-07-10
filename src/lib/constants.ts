@@ -84,22 +84,22 @@ export const notificationTypeOptions = [
   {
     value: "milestone_completed",
     label: "Milestones completed",
-    description: "Checklist and milestone wins that move a goal forward."
+    description: "Checklist and milestone wins that move a plan forward."
   },
   {
     value: "plan_status_changed",
     label: "Plan status changes",
-    description: "Goals moving between active, paused, completed, and archived."
+    description: "Plans moving between active, paused, completed, and archived."
   },
   {
     value: "comment_added",
     label: "Comments",
-    description: "Discussion on goals, decisions, and milestones."
+    description: "Discussion on plans, decisions, and milestones."
   },
   {
     value: "progress_log_added",
     label: "Progress updates",
-    description: "Routine goal progress logs from household members."
+    description: "Routine plan progress logs from household members."
   },
   {
     value: "progress_threshold_reached",
@@ -109,7 +109,7 @@ export const notificationTypeOptions = [
   {
     value: "review_requested",
     label: "Review requested",
-    description: "A household member asks for review on a goal item."
+    description: "A household member asks for review on a plan item."
   },
   {
     value: "review_request_resolved",
@@ -130,9 +130,9 @@ export const notificationTypeOptions = [
 
 export const navigation = [
   { href: "/", label: "Home", description: "Start here" },
-  { href: "/goals", label: "Goals", description: "Plans and next moves" },
-  { href: "/pillars", label: "Pillars", description: "Life areas" },
-  { href: "/weekly-review", label: "Review", description: "Weekly reset" },
+  { href: "/goals", label: "Plans", description: "Next moves" },
+  { href: "/pillars", label: "Life areas", description: "The big picture" },
+  { href: "/weekly-review", label: "Check-in", description: "Weekly reset" },
   { href: "/notifications", label: "Updates", description: "Needs attention" },
   { href: "/activity", label: "History", description: "What changed" }
 ] as const;

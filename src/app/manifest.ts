@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     id: "/",
     name: "LifeGrid",
     short_name: "LifeGrid",
-    description: "A calm, focused command center for meaningful life goals.",
+    description: "A calm, focused command center for meaningful life plans.",
     start_url: "/",
     scope: "/",
     display: "standalone",
@@ -35,16 +35,16 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     shortcuts: [
       {
-        name: "Goals",
-        short_name: "Goals",
-        description: "Open active LifeGrid goals.",
+        name: "Plans",
+        short_name: "Plans",
+        description: "Open active LifeGrid plans.",
         url: "/goals",
         icons: [{ src: "/icons/lifegrid-icon.svg", sizes: "512x512" }]
       },
       {
-        name: "Weekly Review",
-        short_name: "Review",
-        description: "Open the weekly review.",
+        name: "Weekly Check-in",
+        short_name: "Check-in",
+        description: "Open the weekly check-in.",
         url: "/weekly-review",
         icons: [{ src: "/icons/lifegrid-icon.svg", sizes: "512x512" }]
       },
